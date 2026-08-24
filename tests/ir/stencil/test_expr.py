@@ -1,8 +1,8 @@
-from yasmin.core import Dimension, DType, Field
+from yasmin.core import Dimension, Field, float64
 from yasmin.ir.stencil import (
     Assign,
     BinaryExpr,
-    BinaryOperator,
+    BinaryOp,
     FieldAccess,
     Literal,
     Operator,
@@ -13,8 +13,8 @@ def test_five_point_laplacian_ir() -> None:
     x = Dimension("x")
     y = Dimension("y")
 
-    u = Field("u", (x, y), DType.FLOAT64)
-    out = Field("out", (x, y), DType.FLOAT64)
+    u = Field("u", (x, y), dtype=float64)
+    out = Field("out", (x, y), dtype=float64)
 
     center = FieldAccess(u, (0, 0))
     left = FieldAccess(u, (-1, 0))
@@ -23,31 +23,31 @@ def test_five_point_laplacian_ir() -> None:
     down = FieldAccess(u, (0, -1))
 
     sum_horizontal = BinaryExpr(
-        BinaryOperator.ADD,
+        BinaryOp.ADD,
         left,
         right,
     )
 
     sum_vertical = BinaryExpr(
-        BinaryOperator.ADD,
+        BinaryOp.ADD,
         up,
         down,
     )
 
     sum_all = BinaryExpr(
-        BinaryOperator.ADD,
+        BinaryOp.ADD,
         sum_horizontal,
         sum_vertical,
     )
 
     four_center = BinaryExpr(
-        BinaryOperator.MUL,
+        BinaryOp.MUL,
         Literal(4.0),
         center,
     )
 
     laplacian = BinaryExpr(
-        BinaryOperator.SUB,
+        BinaryOp.SUB,
         sum_all,
         four_center,
     )

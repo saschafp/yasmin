@@ -1,6 +1,6 @@
 from yasmin.ir.stencil.expr import (
     BinaryExpr,
-    BinaryOperator,
+    BinaryOp,
     Expr,
     FieldAccess,
     Literal,
@@ -12,7 +12,7 @@ from yasmin.ir.stencil.stmt import Assign
 __all__ = [
     "Assign",
     "BinaryExpr",
-    "BinaryOperator",
+    "BinaryOp",
     "Expr",
     "FieldAccess",
     "Literal",

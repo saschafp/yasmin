@@ -1,21 +1,21 @@
 from yasmin.analysis import infer_offset_bounds
-from yasmin.core import Dimension, DType, Field
-from yasmin.ir.stencil import BinaryExpr, BinaryOperator, FieldAccess
+from yasmin.core import Dimension, Field, float64
+from yasmin.ir.stencil import BinaryExpr, BinaryOp, FieldAccess
 
 
 def test_infer_offset_bounds() -> None:
     x = Dimension("x")
     y = Dimension("y")
 
-    u = Field("u", dims=(x, y), dtype=DType.FLOAT64)
+    u = Field("u", dims=(x, y), dtype=float64)
 
     a = FieldAccess(u, (-2, 0))
     b = FieldAccess(u, (1, 0))
     c = FieldAccess(u, (0, 3))
 
     expr = BinaryExpr(
-        BinaryOperator.ADD,
-        BinaryExpr(BinaryOperator.ADD, a, b),
+        BinaryOp.ADD,
+        BinaryExpr(BinaryOp.ADD, a, b),
         c,
     )
 

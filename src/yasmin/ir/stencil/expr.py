@@ -24,7 +24,7 @@ class FieldAccess(Expr):
     offsets: tuple[int, ...]
 
 
-class BinaryOperator(Enum):
+class BinaryOp(Enum):
     ADD = "+"
     SUB = "-"
     MUL = "*"
@@ -33,6 +33,6 @@ class BinaryOperator(Enum):
 
 @dataclass(frozen=True, slots=True)
 class BinaryExpr(Expr):
-    op: BinaryOperator
+    op: BinaryOp
     lhs: Expr
     rhs: Expr

@@ -1,4 +1,4 @@
-from yasmin.core import Dimension, DType, Field, Scalar
+from yasmin.core import Dimension, Field, Scalar, float64
 
 
 def test_core_declarations() -> None:
@@ -8,17 +8,17 @@ def test_core_declarations() -> None:
     u = Field(
         name="u",
         dims=(x, y),
-        dtype=DType.FLOAT64,
+        dtype=float64,
     )
 
     alpha = Scalar(
         name="alpha",
-        dtype=DType.FLOAT64,
+        dtype=float64,
     )
 
     assert u.name == "u"
     assert u.dims == (x, y)
-    assert u.dtype is DType.FLOAT64
+    assert u.dtype is float64
 
     assert alpha.name == "alpha"
-    assert alpha.dtype is DType.FLOAT64
+    assert alpha.dtype is float64

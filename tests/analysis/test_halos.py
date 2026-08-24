@@ -1,6 +1,6 @@
 from yasmin.analysis import infer_halo, infer_offset_bounds
-from yasmin.core import Dimension, DType, Field
-from yasmin.ir.stencil import BinaryExpr, BinaryOperator, FieldAccess
+from yasmin.core import Dimension, Field, float64
+from yasmin.ir.stencil import BinaryExpr, BinaryOp, FieldAccess
 
 
 def test_infer_halo() -> None:
@@ -13,12 +13,12 @@ def test_asymmetric_stencil_analysis() -> None:
     x = Dimension("x")
     y = Dimension("y")
 
-    u = Field("u", dims=(x, y), dtype=DType.FLOAT64)
+    u = Field("u", dims=(x, y), dtype=float64)
 
     expr = BinaryExpr(
-        BinaryOperator.ADD,
+        BinaryOp.ADD,
         BinaryExpr(
-            BinaryOperator.ADD,
+            BinaryOp.ADD,
             FieldAccess(u, (-2, 0)),
             FieldAccess(u, (1, 0)),
         ),
