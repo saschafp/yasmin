@@ -1,3 +1,5 @@
+import numpy as np
+
 from yasmin.backends.openmp import OpenMPBackend
 from yasmin.core import Dimension, Field, float64
 from yasmin.ir import loop
@@ -101,3 +103,75 @@ def test_parallelizes_only_outermost_loop() -> None:
     )
     assert "for (int y = 1; y < (out_shape_1 - 1); ++y) {" in source
     assert "out[(x * out_shape_1 + y)] = u[(x * u_shape_1 + y)];" in source
+
+
+def test_execute_compiled_openmp_stencil() -> None:
+    x = Dimension("x")
+
+    u = Field("u", dims=(x,), dtype=float64)
+    out = Field("out", dims=(x,), dtype=float64)
+
+    i = loop.Index("x")
+
+    function = loop.Function(
+        name="stencil_1d",
+        fields=(out, u),
+        scalars=(),
+        body=(
+            loop.For(
+                index=i,
+                lower=loop.Literal(1),
+                upper=loop.BinaryExpr(
+                    loop.BinaryOp.SUB,
+                    loop.Extent(out, 0),
+                    loop.Literal(1),
+                ),
+                body=(
+                    loop.Store(
+                        field=out,
+                        indices=(i,),
+                        value=loop.BinaryExpr(
+                            loop.BinaryOp.ADD,
+                            loop.Load(
+                                field=u,
+                                indices=(
+                                    loop.BinaryExpr(
+                                        loop.BinaryOp.SUB,
+                                        i,
+                                        loop.Literal(1),
+                                    ),
+                                ),
+                            ),
+                            loop.Load(
+                                field=u,
+                                indices=(
+                                    loop.BinaryExpr(
+                                        loop.BinaryOp.ADD,
+                                        i,
+                                        loop.Literal(1),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    u_data = np.arange(16, dtype=np.float64)
+    out_data = np.zeros_like(u_data)
+
+    compiled = OpenMPBackend().compile(function)
+
+    compiled(
+        fields={
+            out: out_data,
+            u: u_data,
+        }
+    )
+
+    expected = np.zeros_like(u_data)
+    expected[1:-1] = u_data[:-2] + u_data[2:]
+
+    np.testing.assert_allclose(out_data, expected)
