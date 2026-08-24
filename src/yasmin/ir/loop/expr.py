@@ -24,6 +24,12 @@ class Index(Expr):
 
 
 @dataclass(frozen=True, slots=True)
+class Extent(Expr):
+    field: Field
+    dim: int
+
+
+@dataclass(frozen=True, slots=True)
 class Load(Expr):
     field: Field
     indices: tuple[Expr, ...]
