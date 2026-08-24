@@ -1,0 +1,103 @@
+from yasmin.backends.openmp import OpenMPBackend
+from yasmin.core import Dimension, Field, float64
+from yasmin.ir import loop
+
+
+def test_emit_openmp_parallel_loop() -> None:
+    x = Dimension("x")
+
+    u = Field("u", dims=(x,), dtype=float64)
+    out = Field("out", dims=(x,), dtype=float64)
+
+    i = loop.Index("x")
+
+    function = loop.Function(
+        name="stencil_1d",
+        fields=(out, u),
+        scalars=(),
+        body=(
+            loop.For(
+                index=i,
+                lower=loop.Literal(1),
+                upper=loop.BinaryExpr(
+                    loop.BinaryOp.SUB,
+                    loop.Extent(out, 0),
+                    loop.Literal(1),
+                ),
+                body=(
+                    loop.Store(
+                        field=out,
+                        indices=(i,),
+                        value=loop.Load(
+                            field=u,
+                            indices=(i,),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    source = OpenMPBackend().source(function)
+
+    assert "#pragma omp parallel for" in source
+    assert "for (int x = 1;" in source
+
+
+def test_parallelizes_only_outermost_loop() -> None:
+    x = Dimension("x")
+    y = Dimension("y")
+
+    u = Field("u", dims=(x, y), dtype=float64)
+    out = Field("out", dims=(x, y), dtype=float64)
+
+    i = loop.Index("x")
+    j = loop.Index("y")
+
+    inner = loop.For(
+        index=j,
+        lower=loop.Literal(1),
+        upper=loop.BinaryExpr(
+            loop.BinaryOp.SUB,
+            loop.Extent(out, 1),
+            loop.Literal(1),
+        ),
+        body=(
+            loop.Store(
+                field=out,
+                indices=(i, j),
+                value=loop.Load(
+                    field=u,
+                    indices=(i, j),
+                ),
+            ),
+        ),
+    )
+
+    outer = loop.For(
+        index=i,
+        lower=loop.Literal(1),
+        upper=loop.BinaryExpr(
+            loop.BinaryOp.SUB,
+            loop.Extent(out, 0),
+            loop.Literal(1),
+        ),
+        body=(inner,),
+    )
+
+    function = loop.Function(
+        name="copy_2d",
+        fields=(out, u),
+        scalars=(),
+        body=(outer,),
+    )
+
+    source = OpenMPBackend().source(function)
+
+    assert source.count("#pragma omp parallel for") == 1
+    assert (
+        "#pragma omp parallel for\n"
+        "    for (int x = 1; x < (out_shape_0 - 1); ++x) {" in source
+    )
+    assert "for (int y = 1; y < (out_shape_1 - 1); ++y) {" in source
+    assert "out[(x * out_shape_1 + y)] = u[(x * u_shape_1 + y)];" in source

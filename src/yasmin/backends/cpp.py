@@ -19,6 +19,15 @@ class CppBackend:
 
         return "\n".join(lines)
 
+    def _emit_loop_prefix(
+        self,
+        statement: loop.For,
+        *,
+        indent: int,
+        loop_depth: int,
+    ) -> list[str]:
+        return []
+
     def _emit_parameters(self, function: loop.Function) -> str:
         params: list[str] = []
 
@@ -39,6 +48,7 @@ class CppBackend:
         statement: loop.Stmt,
         *,
         indent: int,
+        loop_depth: int = 0,
     ) -> list[str]:
         prefix = "    " * indent
 
@@ -48,17 +58,23 @@ class CppBackend:
                 return [f"{prefix}{field.name}[{index}] = {self._emit_expr(value)};"]
 
             case loop.For(index=index, lower=lower, upper=upper, body=body):
-                lines = [
-                    (
-                        f"{prefix}for (int {index.name} = "
-                        f"{self._emit_expr(lower)}; "
-                        f"{index.name} < {self._emit_expr(upper)}; "
-                        f"++{index.name}) {{"
-                    )
-                ]
+                lines = self._emit_loop_prefix(
+                    statement, indent=indent, loop_depth=loop_depth
+                )
+
+                lines.append(
+                    f"{prefix}for (int {index.name} = "
+                    f"{self._emit_expr(lower)}; "
+                    f"{index.name} < {self._emit_expr(upper)}; "
+                    f"++{index.name}) {{"
+                )
 
                 for child in body:
-                    lines.extend(self._emit_stmt(child, indent=indent + 1))
+                    lines.extend(
+                        self._emit_stmt(
+                            child, indent=indent + 1, loop_depth=loop_depth + 1
+                        )
+                    )
 
                 lines.append(f"{prefix}}}")
                 return lines
