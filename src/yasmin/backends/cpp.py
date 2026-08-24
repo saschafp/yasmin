@@ -1,5 +1,6 @@
 from yasmin.core import Field
 from yasmin.ir import loop
+from yasmin.runtime.native import CompiledFunction, compile_cpp
 
 
 class CppBackend:
@@ -10,7 +11,7 @@ class CppBackend:
 
         params = self._emit_parameters(function)
 
-        lines.append(f"void {function.name}({params}) {{")
+        lines.append(f'extern "C" void {function.name}({params}) {{')
 
         for statement in function.body:
             lines.extend(self._emit_stmt(statement, indent=1))
@@ -18,6 +19,11 @@ class CppBackend:
         lines.append("}")
 
         return "\n".join(lines)
+
+    def compile(self, function: loop.Function) -> CompiledFunction:
+        shared_library = compile_cpp(self.source(function))
+
+        return CompiledFunction(function=function, shared_library=shared_library)
 
     def _emit_loop_prefix(
         self,
