@@ -23,6 +23,10 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+markers = [
+    "openmp: tests that require an OpenMP-capable compiler",
+    "cuda: tests that require a CUDA-capable GPU",
+]
 
 [tool.ruff]
 line-length = 88

@@ -1,10 +1,12 @@
 import numpy as np
+import pytest
 
 from yasmin.backends.openmp import OpenMPBackend
 from yasmin.core import Dimension, Field, float64
 from yasmin.ir import loop
 
 
+@pytest.mark.openmp
 def test_emit_openmp_parallel_loop() -> None:
     x = Dimension("x")
 
@@ -105,6 +107,7 @@ def test_parallelizes_only_outermost_loop() -> None:
     assert "out[(x * out_shape_1 + y)] = u[(x * u_shape_1 + y)];" in source
 
 
+@pytest.mark.openmp
 def test_execute_compiled_openmp_stencil() -> None:
     x = Dimension("x")
 
