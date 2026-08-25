@@ -9,13 +9,7 @@ def test_stencil_wraps_expression() -> None:
 
     u = Field("u", dims=(x, y), dtype=float64)
 
-    laplacian = (
-        u[-1, 0]
-        + u[1, 0]
-        + u[0, -1]
-        + u[0, 1]
-        - 4 * u[0, 0]
-    )
+    laplacian = u[-1, 0] + u[1, 0] + u[0, -1] + u[0, 1] - 4 * u[0, 0]
 
     stencil = Stencil(laplacian)
 

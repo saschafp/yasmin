@@ -12,13 +12,7 @@ def test_operator_builds_stencil_ir() -> None:
     u = Field("u", dims=(x, y), dtype=float64)
     out = Field("out", dims=(x, y), dtype=float64)
 
-    laplacian = Stencil(
-        u[-1, 0]
-        + u[1, 0]
-        + u[0, -1]
-        + u[0, 1]
-        - 4 * u[0, 0]
-    )
+    laplacian = Stencil(u[-1, 0] + u[1, 0] + u[0, -1] + u[0, 1] - 4 * u[0, 0])
 
     operator = Operator(target=out[0, 0], value=laplacian)
 
