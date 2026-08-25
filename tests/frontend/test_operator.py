@@ -16,8 +16,8 @@ def test_operator_builds_stencil_ir() -> None:
 
     operator = Operator(target=out[0, 0], value=laplacian)
 
-    assert isinstance(operator.ir, ir.Operator)
-    assert len(operator.ir.statements) == 1
+    assert isinstance(operator._as_ir(), ir.Operator)
+    assert len(operator._as_ir().statements) == 1
 
 
 def test_operator_target_must_be_field_access() -> None:

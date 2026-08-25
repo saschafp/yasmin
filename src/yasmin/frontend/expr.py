@@ -5,85 +5,95 @@ from dataclasses import dataclass
 from yasmin.ir import stencil
 
 
+class SymbolicExpr:
+    def _as_ir(self) -> stencil.Expr:
+        raise NotImplementedError
+
+    def __add__(self, other: SymbolicExpr | int | float) -> Expr:
+        return Expr(
+            stencil.BinaryExpr(
+                stencil.BinaryOp.ADD,
+                self._as_ir(),
+                _as_ir_expr(other),
+            )
+        )
+
+    def __radd__(self, other: SymbolicExpr | int | float) -> Expr:
+        return Expr(
+            stencil.BinaryExpr(
+                stencil.BinaryOp.ADD,
+                _as_ir_expr(other),
+                self._as_ir(),
+            )
+        )
+
+    def __sub__(self, other: SymbolicExpr | int | float) -> Expr:
+        return Expr(
+            stencil.BinaryExpr(
+                stencil.BinaryOp.SUB,
+                self._as_ir(),
+                _as_ir_expr(other),
+            )
+        )
+
+    def __rsub__(self, other: SymbolicExpr | int | float) -> Expr:
+        return Expr(
+            stencil.BinaryExpr(
+                stencil.BinaryOp.SUB,
+                _as_ir_expr(other),
+                self._as_ir(),
+            )
+        )
+
+    def __mul__(self, other: SymbolicExpr | int | float) -> Expr:
+        return Expr(
+            stencil.BinaryExpr(
+                stencil.BinaryOp.MUL,
+                self._as_ir(),
+                _as_ir_expr(other),
+            )
+        )
+
+    def __rmul__(self, other: SymbolicExpr | int | float) -> Expr:
+        return Expr(
+            stencil.BinaryExpr(
+                stencil.BinaryOp.MUL,
+                _as_ir_expr(other),
+                self._as_ir(),
+            )
+        )
+
+    def __truediv__(self, other: SymbolicExpr | int | float) -> Expr:
+        return Expr(
+            stencil.BinaryExpr(
+                stencil.BinaryOp.DIV,
+                self._as_ir(),
+                _as_ir_expr(other),
+            )
+        )
+
+    def __rtruediv__(self, other: SymbolicExpr | int | float) -> Expr:
+        return Expr(
+            stencil.BinaryExpr(
+                stencil.BinaryOp.DIV,
+                _as_ir_expr(other),
+                self._as_ir(),
+            )
+        )
+
+
 @dataclass(frozen=True, slots=True)
-class Expr:
-    ir: stencil.Expr
+class Expr(SymbolicExpr):
+    _ir: stencil.Expr
 
-    def __add__(self, other: Expr | int | float) -> Expr:
-        return Expr(
-            stencil.BinaryExpr(
-                stencil.BinaryOp.ADD,
-                self.ir,
-                as_ir_expr(other),
-            )
-        )
-
-    def __radd__(self, other: Expr | int | float) -> Expr:
-        return Expr(
-            stencil.BinaryExpr(
-                stencil.BinaryOp.ADD,
-                as_ir_expr(other),
-                self.ir,
-            )
-        )
-
-    def __sub__(self, other: Expr | int | float) -> Expr:
-        return Expr(
-            stencil.BinaryExpr(
-                stencil.BinaryOp.SUB,
-                self.ir,
-                as_ir_expr(other),
-            )
-        )
-
-    def __rsub__(self, other: Expr | int | float) -> Expr:
-        return Expr(
-            stencil.BinaryExpr(
-                stencil.BinaryOp.SUB,
-                as_ir_expr(other),
-                self.ir,
-            )
-        )
-
-    def __mul__(self, other: Expr | int | float) -> Expr:
-        return Expr(
-            stencil.BinaryExpr(
-                stencil.BinaryOp.MUL,
-                self.ir,
-                as_ir_expr(other),
-            )
-        )
-
-    def __rmul__(self, other: Expr | int | float) -> Expr:
-        return Expr(
-            stencil.BinaryExpr(
-                stencil.BinaryOp.MUL,
-                as_ir_expr(other),
-                self.ir,
-            )
-        )
-
-    def __truediv__(self, other: Expr | int | float) -> Expr:
-        return Expr(
-            stencil.BinaryExpr(
-                stencil.BinaryOp.DIV,
-                self.ir,
-                as_ir_expr(other),
-            )
-        )
-
-    def __rtruediv__(self, other: Expr | int | float) -> Expr:
-        return Expr(
-            stencil.BinaryExpr(
-                stencil.BinaryOp.DIV,
-                as_ir_expr(other),
-                self.ir,
-            )
-        )
+    def _as_ir(self) -> stencil.Expr:
+        return self._ir
 
 
-def as_ir_expr(value: Expr | int | float) -> stencil.Expr:
-    if isinstance(value, Expr):
-        return value.ir
+def _as_ir_expr(
+    value: SymbolicExpr | int | float,
+) -> stencil.Expr:
+    if isinstance(value, SymbolicExpr):
+        return value._as_ir()
 
     return stencil.Literal(value)

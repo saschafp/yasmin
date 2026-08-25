@@ -14,7 +14,7 @@ def test_build_field_expression() -> None:
     laplacian = u[-1, 0] + u[1, 0] + u[0, -1] + u[0, 1] - 4 * u[0, 0]
 
     assert isinstance(laplacian, Expr)
-    assert isinstance(laplacian.ir, stencil.BinaryExpr)
+    assert isinstance(laplacian._ir, stencil.BinaryExpr)
 
 
 def test_field_access_validate_dimensionality() -> None:

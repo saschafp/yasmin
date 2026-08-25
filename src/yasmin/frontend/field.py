@@ -8,7 +8,7 @@ from yasmin.ir import stencil as stencil_ir
 
 @dataclass(frozen=True, slots=True)
 class Field:
-    core: CoreField
+    _core: CoreField
 
     def __init__(
         self,
@@ -17,19 +17,27 @@ class Field:
         dims: tuple[Dimension, ...],
         dtype: DType,
     ) -> None:
-        object.__setattr__(self, "core", CoreField(name=name, dims=dims, dtype=dtype))
+        object.__setattr__(
+            self,
+            "_core",
+            CoreField(
+                name=name,
+                dims=dims,
+                dtype=dtype,
+            ),
+        )
 
     @property
     def name(self) -> str:
-        return self.core.name
+        return self._core.name
 
     @property
     def dims(self) -> tuple[Dimension, ...]:
-        return self.core.dims
+        return self._core.dims
 
     @property
     def dtype(self) -> DType:
-        return self.core.dtype
+        return self._core.dtype
 
     def __getitem__(
         self,
@@ -37,15 +45,15 @@ class Field:
     ) -> Expr:
         normalized = (offsets,) if isinstance(offsets, int) else offsets
 
-        if len(normalized) != len(self.core.dims):
+        if len(normalized) != len(self._core.dims):
             raise ValueError(
-                f"Field {self.core.name!r} expects {len(self.core.dims)} "
-                f"offsets, got {len(normalized)}"
+                f"Field {self._core.name!r} expects "
+                f"{len(self._core.dims)} offsets, got {len(normalized)}"
             )
 
         return Expr(
             stencil_ir.FieldAccess(
-                field=self.core,
+                field=self._core,
                 offsets=normalized,
             )
         )

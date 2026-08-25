@@ -14,4 +14,4 @@ def test_stencil_wraps_expression() -> None:
     stencil = Stencil(laplacian)
 
     assert stencil.expr == laplacian
-    assert isinstance(stencil.expr.ir, ir.BinaryExpr)
+    assert isinstance(stencil.expr._ir, ir.BinaryExpr)

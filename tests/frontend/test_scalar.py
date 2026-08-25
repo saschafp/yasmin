@@ -12,6 +12,6 @@ def test_scalar_builds_expression() -> None:
     expr = alpha * u[0]
 
     assert isinstance(expr, Expr)
-    assert isinstance(expr.ir, stencil.BinaryExpr)
-    assert isinstance(expr.ir.lhs, stencil.ScalarRef)
-    assert expr.ir.lhs.scalar == alpha.core
+    assert isinstance(expr._ir, stencil.BinaryExpr)
+    assert isinstance(expr._ir.lhs, stencil.ScalarRef)
+    assert expr._ir.lhs.scalar == alpha._core

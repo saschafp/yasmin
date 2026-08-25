@@ -13,8 +13,8 @@ def test_frontend_field_builds_field_access() -> None:
 
     access = u[-1, 0]
 
-    assert access.ir == stencil_ir.FieldAccess(
-        field=u.core,
+    assert access._ir == stencil_ir.FieldAccess(
+        field=u._core,
         offsets=(-1, 0),
     )
 
