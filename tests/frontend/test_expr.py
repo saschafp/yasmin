@@ -1,7 +1,7 @@
 import pytest
 
-from yasmin.core import Dimension, Field, float64
-from yasmin.frontend import Expr, symbol
+from yasmin.core import Dimension, float64
+from yasmin.frontend import Expr, Field
 from yasmin.ir import stencil
 
 
@@ -10,14 +10,13 @@ def test_build_field_expression() -> None:
     y = Dimension("y")
 
     u = Field("u", dims=(x, y), dtype=float64)
-    u_symbol = symbol(u)
 
     laplacian = (
-        u_symbol[-1, 0]
-        + u_symbol[1, 0]
-        + u_symbol[0, -1]
-        + u_symbol[0, 1]
-        - 4 * u_symbol[0, 0]
+        u[-1, 0]
+        + u[1, 0]
+        + u[0, -1]
+        + u[0, 1]
+        - 4 * u[0, 0]
     )
 
     assert isinstance(laplacian, Expr)
@@ -29,7 +28,6 @@ def test_field_access_validate_dimensionality() -> None:
     y = Dimension("y")
 
     u = Field("u", dims=(x, y), dtype=float64)
-    u_symbol = symbol(u)
 
     with pytest.raises(ValueError):
-        _ = u_symbol[0]
+        _ = u[0]

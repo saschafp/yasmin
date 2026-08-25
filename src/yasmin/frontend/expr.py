@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from yasmin.core import Field
 from yasmin.ir import stencil
 
 
@@ -83,33 +82,8 @@ class Expr:
         )
 
 
-@dataclass(frozen=True, slots=True)
-class FieldSymbol:
-    field: Field
-
-    def __getitem__(self, offsets: int | tuple[int, ...]) -> Expr:
-        normalized = (offsets,) if isinstance(offsets, int) else offsets
-
-        if len(normalized) != len(self.field.dims):
-            raise ValueError(
-                f"Field {self.field.name!r} expects "
-                f"{len(self.field.dims)} offsets, got {len(normalized)}"
-            )
-
-        return Expr(
-            stencil.FieldAccess(
-                field=self.field,
-                offsets=normalized,
-            )
-        )
-
-
 def as_ir_expr(value: Expr | int | float) -> stencil.Expr:
     if isinstance(value, Expr):
         return value.ir
 
     return stencil.Literal(value)
-
-
-def symbol(field: Field) -> FieldSymbol:
-    return FieldSymbol(field)

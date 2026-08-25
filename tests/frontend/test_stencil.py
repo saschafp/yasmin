@@ -1,5 +1,5 @@
-from yasmin.core import Dimension, Field, float64
-from yasmin.frontend import Stencil, symbol
+from yasmin.core import Dimension, float64
+from yasmin.frontend import Field, Stencil
 from yasmin.ir import stencil as ir
 
 
@@ -8,14 +8,13 @@ def test_stencil_wraps_expression() -> None:
     y = Dimension("y")
 
     u = Field("u", dims=(x, y), dtype=float64)
-    u_symbol = symbol(u)
 
     laplacian = (
-        u_symbol[-1, 0]
-        + u_symbol[1, 0]
-        + u_symbol[0, -1]
-        + u_symbol[0, 1]
-        - 4 * u_symbol[0, 0]
+        u[-1, 0]
+        + u[1, 0]
+        + u[0, -1]
+        + u[0, 1]
+        - 4 * u[0, 0]
     )
 
     stencil = Stencil(laplacian)
