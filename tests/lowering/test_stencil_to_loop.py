@@ -71,3 +71,38 @@ def test_lower_1d_stencil() -> None:
             ),
         ),
     )
+
+
+def test_lower_multiple_assignments_preserves_order() -> None:
+    x = Dimension("x")
+
+    u = Field("u", dims=(x,), dtype=float64)
+    u_new = Field("u_new", dims=(x,), dtype=float64)
+
+    operator = stencil.Operator(
+        statements=(
+            stencil.Assign(
+                target=stencil.FieldAccess(u_new, (0,)),
+                value=stencil.FieldAccess(u, (0,)),
+            ),
+            stencil.Assign(
+                target=stencil.FieldAccess(u, (0,)),
+                value=stencil.FieldAccess(u_new, (0,)),
+            ),
+        )
+    )
+
+    function = lower(operator)
+
+    assert len(function.body) == 2
+    assert isinstance(function.body[0], loop.For)
+    assert isinstance(function.body[1], loop.For)
+
+    first_loop = function.body[0]
+    second_loop = function.body[1]
+
+    assert isinstance(first_loop.body[0], loop.Store)
+    assert isinstance(second_loop.body[0], loop.Store)
+
+    assert first_loop.body[0].field == u_new
+    assert second_loop.body[0].field == u

@@ -118,18 +118,7 @@ def _lower_expr(expr: stencil.Expr, indices: tuple[loop.Index, ...]) -> loop.Exp
             )
 
 
-def lower(
-    operator: stencil.Operator,
-    *,
-    name: str = "kernel",
-) -> loop.Function:
-    if len(operator.statements) != 1:
-        raise NotImplementedError(
-            "Loop lowering currently supports only a single assignment"
-        )
-
-    statement = operator.statements[0]
-
+def _lower_statement(statement: stencil.Assign) -> tuple[loop.Stmt, ...]:
     if any(offset != 0 for offset in statement.target.offsets):
         raise NotImplementedError(
             "Loop lowering currently requires centered output accesses"
@@ -159,22 +148,22 @@ def lower(
 
     indices = tuple(loop.Index(dim.name) for dim in statement.target.field.dims)
 
-    value = _lower_expr(statement.value, indices)
-
     store = loop.Store(
         field=statement.target.field,
         indices=indices,
-        value=value,
+        value=_lower_expr(statement.value, indices),
     )
 
     body: tuple[loop.Stmt, ...] = (store,)
 
-    # Wrap from innermost to outermost
     for dim in reversed(range(ndim)):
         interval = domain.intervals[dim]
 
         lower_bound: loop.Expr = loop.Literal(interval.lower)
-        upper_bound: loop.Expr = loop.Extent(statement.target.field, dim)
+        upper_bound: loop.Expr = loop.Extent(
+            statement.target.field,
+            dim,
+        )
 
         if interval.upper_trim != 0:
             upper_bound = loop.BinaryExpr(
@@ -191,11 +180,51 @@ def lower(
                 body=body,
             ),
         )
-    symbols = _collect_symbols(statement)
+
+    return body
+
+
+def _collect_operator_symbols(
+    operator: stencil.Operator,
+) -> Symbols:
+    fields: list[Field] = []
+    scalars: list[Scalar] = []
+
+    for statement in operator.statements:
+        symbols = _collect_symbols(statement)
+
+        for field in symbols.fields:
+            if field not in fields:
+                fields.append(field)
+
+        for scalar in symbols.scalars:
+            if scalar not in scalars:
+                scalars.append(scalar)
+
+    return Symbols(
+        fields=tuple(fields),
+        scalars=tuple(scalars),
+    )
+
+
+def lower(
+    operator: stencil.Operator,
+    *,
+    name: str = "kernel",
+) -> loop.Function:
+    if not operator.statements:
+        raise ValueError("Operator requires at least one assignment")
+
+    body: list[loop.Stmt] = []
+
+    for statement in operator.statements:
+        body.extend(_lower_statement(statement))
+
+    symbols = _collect_operator_symbols(operator)
 
     return loop.Function(
         name=name,
         fields=symbols.fields,
         scalars=symbols.scalars,
-        body=body,
+        body=tuple(body),
     )
