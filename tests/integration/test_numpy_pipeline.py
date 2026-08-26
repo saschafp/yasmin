@@ -109,3 +109,64 @@ def test_numpy_operator_with_sequential_diffusion_assignments() -> None:
 
     np.testing.assert_allclose(u_new_data, expected_u_new)
     np.testing.assert_allclose(u_data, expected_u)
+
+
+def test_decorated_double_buffer_diffusion_with_numpy() -> None:
+    x = yasi.Dimension("x")
+    y = yasi.Dimension("y")
+
+    u = yasi.Field("u", dims=(x, y), dtype=yasi.float64)
+    u_new = yasi.Field("u_new", dims=(x, y), dtype=yasi.float64)
+    alpha = yasi.Scalar("alpha", dtype=yasi.float64)
+
+    @yasi.stencil
+    def laplace(f):
+        return f[-1, 0] + f[1, 0] + f[0, -1] + f[0, 1] - 4.0 * f[0, 0]
+
+    @yasi.operator
+    def diffuse(u, u_new, alpha):
+        u_new[0, 0] = u[0, 0] + alpha * laplace(u)
+        u[0, 0] = u_new[0, 0] + alpha * laplace(u_new)
+
+    op = diffuse(u, u_new, alpha)
+
+    u_data = np.zeros((8, 8), dtype=np.float64)
+    u_data[3:5, 3:5] = 1.0
+
+    u_new_data = np.zeros_like(u_data)
+    alpha_value = 0.1
+
+    u_initial = u_data.copy()
+
+    yasi.execute(
+        op,
+        backend="numpy",
+        fields={
+            u: u_data,
+            u_new: u_new_data,
+        },
+        scalars={
+            alpha: alpha_value,
+        },
+    )
+
+    expected_u_new = np.zeros_like(u_initial)
+    expected_u_new[1:-1, 1:-1] = u_initial[1:-1, 1:-1] + alpha_value * (
+        u_initial[:-2, 1:-1]
+        + u_initial[2:, 1:-1]
+        + u_initial[1:-1, :-2]
+        + u_initial[1:-1, 2:]
+        - 4.0 * u_initial[1:-1, 1:-1]
+    )
+
+    expected_u = u_initial.copy()
+    expected_u[1:-1, 1:-1] = expected_u_new[1:-1, 1:-1] + alpha_value * (
+        expected_u_new[:-2, 1:-1]
+        + expected_u_new[2:, 1:-1]
+        + expected_u_new[1:-1, :-2]
+        + expected_u_new[1:-1, 2:]
+        - 4.0 * expected_u_new[1:-1, 1:-1]
+    )
+
+    np.testing.assert_allclose(u_new_data, expected_u_new)
+    np.testing.assert_allclose(u_data, expected_u)

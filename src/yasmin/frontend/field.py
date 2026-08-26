@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from yasmin.core import Dimension, DType
 from yasmin.core import Field as CoreField
-from yasmin.frontend.expr import Expr
+from yasmin.frontend.expr import Expr, SymbolicExpr, _as_symbolic_expr
 from yasmin.ir import stencil as stencil_ir
 
 
@@ -56,4 +56,18 @@ class Field:
                 field=self._core,
                 offsets=normalized,
             )
+        )
+
+    def __setitem__(
+        self,
+        offsets: int | tuple[int, ...],
+        value: SymbolicExpr | int | float,
+    ) -> None:
+        from yasmin.frontend.capture import record_assignment
+
+        target = self[offsets]
+
+        record_assignment(
+            target,
+            _as_symbolic_expr(value),
         )

@@ -97,3 +97,12 @@ def _as_ir_expr(
         return value._as_ir()
 
     return stencil.Literal(value)
+
+
+def _as_symbolic_expr(
+    value: SymbolicExpr | int | float,
+) -> SymbolicExpr:
+    if isinstance(value, SymbolicExpr):
+        return value
+
+    return Expr(stencil.Literal(value))
