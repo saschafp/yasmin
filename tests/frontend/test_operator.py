@@ -30,3 +30,54 @@ def test_operator_target_must_be_field_access() -> None:
 
     with pytest.raises(TypeError):
         Operator(target=target, value=value)
+
+
+def test_operator_single_assignment_positional() -> None:
+    x = Dimension("x")
+
+    u = Field("u", dims=(x,), dtype=float64)
+    out = Field("out", dims=(x,), dtype=float64)
+
+    operator = Operator(
+        out[0],
+        2.0 * u[0],
+    )
+
+    operator_ir = operator._as_ir()
+
+    assert len(operator_ir.statements) == 1
+
+
+def test_operator_single_assignment_keyword() -> None:
+    x = Dimension("x")
+
+    u = Field("u", dims=(x,), dtype=float64)
+    out = Field("out", dims=(x,), dtype=float64)
+
+    operator = Operator(
+        target=out[0],
+        value=2.0 * u[0],
+    )
+
+    operator_ir = operator._as_ir()
+
+    assert len(operator_ir.statements) == 1
+
+
+def test_operator_multiple_assignments() -> None:
+    x = Dimension("x")
+
+    u = Field("u", dims=(x,), dtype=float64)
+    v = Field("v", dims=(x,), dtype=float64)
+
+    out_u = Field("out_u", dims=(x,), dtype=float64)
+    out_v = Field("out_v", dims=(x,), dtype=float64)
+
+    operator = Operator(
+        (out_u[0], 2.0 * u[0]),
+        (out_v[0], 3.0 * v[0]),
+    )
+
+    operator_ir = operator._as_ir()
+
+    assert len(operator_ir.statements) == 2
