@@ -6,6 +6,8 @@ from yasmin.frontend import (
     Scalar,
     Stencil,
     operator,
+    print_loop_ir,
+    print_stencil_ir,
     stencil,
 )
 from yasmin.runtime.dispatch import execute
@@ -23,5 +25,7 @@ __all__ = [
     "Scalar",
     "Stencil",
     "stencil",
+    "print_stencil_ir",
+    "print_loop_ir",
     "execute",
 ]
