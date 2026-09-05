@@ -1,12 +1,16 @@
+from collections.abc import Mapping
+
 from yasmin.core import Field
 from yasmin.ir import loop
 from yasmin.runtime.native import CompiledFunction, compile_cpp
+
+Shapes = Mapping[Field, tuple[int, ...]]
 
 
 class CppBackend:
     name = "cpp"
 
-    def source(self, function: loop.Function) -> str:
+    def source(self, function: loop.Function, shapes: Shapes | None = None) -> str:
         lines: list[str] = []
 
         params = self._emit_parameters(function)
@@ -14,14 +18,17 @@ class CppBackend:
         lines.append(f'extern "C" void {function.name}({params}) {{')
 
         for statement in function.body:
-            lines.extend(self._emit_stmt(statement, indent=1))
+            lines.extend(self._emit_stmt(statement, indent=1, shapes=shapes))
 
         lines.append("}")
 
         return "\n".join(lines)
 
-    def compile(self, function: loop.Function) -> CompiledFunction:
-        shared_library = compile_cpp(self.source(function))
+    def compile(
+        self, function: loop.Function, shapes: Shapes | None = None
+    ) -> CompiledFunction:
+        # print(self.soruce(function))
+        shared_library = compile_cpp(self.source(function, shapes=shapes))
 
         return CompiledFunction(function=function, shared_library=shared_library)
 
@@ -31,6 +38,7 @@ class CppBackend:
         *,
         indent: int,
         loop_depth: int,
+        shapes: Shapes | None = None,
     ) -> list[str]:
         return []
 
@@ -38,7 +46,7 @@ class CppBackend:
         params: list[str] = []
 
         for field in function.fields:
-            params.append(f"double* {field.name}")
+            params.append(self._emit_field_param(field))
 
         for field in function.fields:
             for dim in range(len(field.dims)):
@@ -49,12 +57,16 @@ class CppBackend:
 
         return ", ".join(params)
 
+    def _emit_field_param(self, field: Field) -> str:
+        return f"double* {field.name}"
+
     def _emit_stmt(
         self,
         statement: loop.Stmt,
         *,
         indent: int,
         loop_depth: int = 0,
+        shapes: Shapes | None = None,
     ) -> list[str]:
         prefix = "    " * indent
 
@@ -65,7 +77,7 @@ class CppBackend:
 
             case loop.For(index=index, lower=lower, upper=upper, body=body):
                 lines = self._emit_loop_prefix(
-                    statement, indent=indent, loop_depth=loop_depth
+                    statement, indent=indent, loop_depth=loop_depth, shapes=shapes
                 )
 
                 lines.append(
@@ -78,7 +90,10 @@ class CppBackend:
                 for child in body:
                     lines.extend(
                         self._emit_stmt(
-                            child, indent=indent + 1, loop_depth=loop_depth + 1
+                            child,
+                            indent=indent + 1,
+                            loop_depth=loop_depth + 1,
+                            shapes=shapes,
                         )
                     )
 

@@ -31,11 +31,14 @@ def execute(
         return
 
     function = lower(operator=operator_ir, name="kernel")
+    shapes = {field: array.shape for field, array in field_bindings.items()}
 
     if backend == "cpp":
-        compiled_function = CppBackend().compile(function)
+        print(CppBackend().source(function, shapes=shapes))  # TODO Saskia: Remove
+        compiled_function = CppBackend().compile(function, shapes=shapes)
     elif backend == "openmp":
-        compiled_function = OpenMPBackend().compile(function)
+        print(OpenMPBackend().source(function, shapes=shapes))  # TODO Saskia: Remove
+        compiled_function = OpenMPBackend().compile(function, shapes=shapes)
     else:
         raise ValueError(f"Unknown backend: {backend!r}")
 

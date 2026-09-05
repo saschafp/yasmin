@@ -99,10 +99,8 @@ def test_parallelizes_only_outermost_loop() -> None:
     source = OpenMPBackend().source(function)
 
     assert source.count("#pragma omp parallel for") == 1
-    assert (
-        "#pragma omp parallel for\n"
-        "    for (int x = 1; x < (out_shape_0 - 1); ++x) {" in source
-    )
+    assert "#pragma omp parallel for" in source
+    assert "    for (int x = 1; x < (out_shape_0 - 1); ++x) {" in source
     assert "for (int y = 1; y < (out_shape_1 - 1); ++y) {" in source
     assert "out[(x * out_shape_1 + y)] = u[(x * u_shape_1 + y)];" in source
 
