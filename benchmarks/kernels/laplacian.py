@@ -38,3 +38,45 @@ def run_smoke():
 
 if __name__ == "__main__":
     run_smoke()
+
+
+# TODO: check correctness of implementation, dimensions (change to 3D?)
+def run_yasmin(backend: str, nx: int):
+    """Run the Laplacian using yasmin on the specified backend.
+
+    Returns the output array produced by the backend (numpy array).
+    """
+    import numpy as _np
+    import yasmin as yasi
+
+    x = yasi.Dimension("x")
+    y = yasi.Dimension("y")
+
+    u = yasi.Field("u", dims=(x, y), dtype=yasi.float64)
+    out = yasi.Field("out", dims=(x, y), dtype=yasi.float64)
+
+    @yasi.stencil
+    def laplace(f):
+        return f[-1, 0] + f[1, 0] + f[0, -1] + f[0, 1] - 4.0 * f[0, 0]
+
+    @yasi.operator
+    def diffuse(u_f, out_f):
+        out_f[0, 0] = laplace(u_f)
+
+    op = diffuse(u, out)
+
+    u_data = make_initial(nx)
+    out_data = _np.zeros_like(u_data)
+
+    # execute fills out_data in-place
+    yasi.execute(
+        op,
+        backend=backend,
+        fields={
+            u: u_data,
+            out: out_data,
+        },
+        scalars={},
+    )
+
+    return out_data

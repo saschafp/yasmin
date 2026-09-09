@@ -7,8 +7,12 @@ Structure:
 - runners/: runner scripts and timing utilities
 - outputs/: raw CSV/JSON and plots
 
-Usage (starter):
+Usage:
 
 Run a smoke test of the Laplacian kernel (NumPy reference):
 
-python3 benchmarks/runners/benchmark.py --action smoke --kernel laplacian
+python3 runners/benchmark.py --action smoke --kernel laplacian
+
+Run validation of the yasi Laplace kernel:
+
+python3 runners/validate.py --backend numpy --nx 64
