@@ -1,0 +1,3 @@
+implementation,nx,build_s,gen_s,compile_s,runtime_ms
+numpy,256,0,0,0,0.816827
+yasmin,256,0.000981,0.000014,0.000000,1.205796
