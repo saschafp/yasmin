@@ -1,4 +1,5 @@
 import yasmin as yasi
+from yasmin.frontend.expr import SymbolicExpr
 
 
 def test_stencil_decorator_returns_stencil() -> None:
@@ -8,7 +9,7 @@ def test_stencil_decorator_returns_stencil() -> None:
     u = yasi.Field("u", dims=(x, y), dtype=yasi.float64)
 
     @yasi.stencil
-    def laplace(f):
+    def laplace(f: yasi.Field) -> SymbolicExpr:
         return f[-1, 0] + f[1, 0] + f[0, -1] + f[0, 1] - 4.0 * f[0, 0]
 
     result = laplace(u)
@@ -23,7 +24,7 @@ def test_stencil_decorator_can_be_reused_for_multiple_fields() -> None:
     v = yasi.Field("v", dims=(x,), dtype=yasi.float64)
 
     @yasi.stencil
-    def centered(f):
+    def centered(f: yasi.Field) -> SymbolicExpr:
         return f[-1] + f[0] + f[1]
 
     stencil_u = centered(u)
@@ -41,7 +42,7 @@ def test_operator_decorator_captures_single_assignment() -> None:
     out = yasi.Field("out", dims=(x,), dtype=yasi.float64)
 
     @yasi.operator
-    def double(out, u):
+    def double(out: yasi.Field, u: yasi.Field) -> None:
         out[0] = 2.0 * u[0]
 
     result = double(out, u)
@@ -59,7 +60,7 @@ def test_operator_decorator_preserves_assignment_order() -> None:
     u_new = yasi.Field("u_new", dims=(x,), dtype=yasi.float64)
 
     @yasi.operator
-    def step(u, u_new):
+    def step(u: yasi.Field, u_new: yasi.Field) -> None:
         u_new[0] = 2.0 * u[0]
         u[0] = 3.0 * u_new[0]
 
@@ -77,7 +78,7 @@ def test_operator_decorator_accepts_literal_assignment() -> None:
     u = yasi.Field("u", dims=(x,), dtype=yasi.float64)
 
     @yasi.operator
-    def initialize(u):
+    def initialize(u: yasi.Field) -> None:
         u[0] = 1.0
 
     result = initialize(u)

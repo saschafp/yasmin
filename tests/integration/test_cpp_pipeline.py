@@ -1,6 +1,7 @@
 import numpy as np
 
 import yasmin as yasi
+from yasmin.frontend.expr import SymbolicExpr
 
 
 def test_frontend_operator_with_cpp() -> None:
@@ -120,11 +121,11 @@ def test_decorated_double_buffer_diffusion_with_cpp() -> None:
     alpha = yasi.Scalar("alpha", dtype=yasi.float64)
 
     @yasi.stencil
-    def laplace(f):
+    def laplace(f: yasi.Field) -> SymbolicExpr:
         return f[-1, 0] + f[1, 0] + f[0, -1] + f[0, 1] - 4.0 * f[0, 0]
 
     @yasi.operator
-    def diffuse(u, u_new, alpha):
+    def diffuse(u: yasi.Field, u_new: yasi.Field, alpha: yasi.Scalar) -> None:
         u_new[0, 0] = u[0, 0] + alpha * laplace(u)
         u[0, 0] = u_new[0, 0] + alpha * laplace(u_new)
 
