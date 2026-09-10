@@ -175,3 +175,55 @@ def test_decorated_double_buffer_diffusion_with_openmp() -> None:
 
     np.testing.assert_allclose(u_new_data, expected_u_new)
     np.testing.assert_allclose(u_data, expected_u)
+
+
+@pytest.mark.openmp
+def test_3d_laplacian_with_cpp() -> None:
+    x, y, z = yasi.Dimension("x", "y", "z")
+
+    u = yasi.Field("u", dims=(x, y, z), dtype=yasi.float64)
+    out = yasi.Field("out", dims=(x, y, z), dtype=yasi.float64)
+
+    @yasi.stencil
+    def laplace_3d(f: yasi.Field) -> SymbolicExpr:
+        return (
+            f[-1, 0, 0]
+            + f[1, 0, 0]
+            + f[0, -1, 0]
+            + f[0, 1, 0]
+            + f[0, 0, -1]
+            + f[0, 0, 1]
+            - 6.0 * f[0, 0, 0]
+        )
+
+    @yasi.operator
+    def apply(out: yasi.Field, u: yasi.Field) -> None:
+        out[0, 0, 0] = laplace_3d(u)
+
+    op = apply(out, u)
+
+    u_data = np.zeros((6, 6, 6), dtype=np.float64)
+    u_data[2:4, 2:4, 2:4] = 1.0
+    out_data = np.zeros_like(u_data)
+
+    yasi.execute(
+        op,
+        backend="openmp",
+        fields={
+            u: u_data,
+            out: out_data,
+        },
+    )
+
+    expected = np.zeros_like(u_data)
+    expected[1:-1, 1:-1, 1:-1] = (
+        u_data[:-2, 1:-1, 1:-1]
+        + u_data[2:, 1:-1, 1:-1]
+        + u_data[1:-1, :-2, 1:-1]
+        + u_data[1:-1, 2:, 1:-1]
+        + u_data[1:-1, 1:-1, :-2]
+        + u_data[1:-1, 1:-1, 2:]
+        - 6.0 * u_data[1:-1, 1:-1, 1:-1]
+    )
+
+    np.testing.assert_allclose(out_data, expected)

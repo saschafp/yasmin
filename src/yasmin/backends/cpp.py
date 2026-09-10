@@ -121,15 +121,14 @@ class CppBackend:
         field: Field,
         indices: tuple[loop.Expr, ...],
     ) -> str:
-        if len(indices) == 1:
-            return self._emit_expr(indices[0])
+        if not indices:
+            raise ValueError("Cannot flatten an empty index tuple")
 
-        if len(indices) == 2:
-            i = self._emit_expr(indices[0])
-            j = self._emit_expr(indices[1])
+        result = self._emit_expr(indices[0])
 
-            return f"({i} * {field.name}_shape_1 + {j})"
+        for axis, index in enumerate(indices[1:], start=1):
+            result = (
+                f"({result} * {field.name}_shape_{axis} + {self._emit_expr(index)})"
+            )
 
-        raise NotImplementedError(
-            "C++ backend currently supports only 1D and 2D fields"
-        )
+        return result
