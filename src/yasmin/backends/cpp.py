@@ -1,4 +1,4 @@
-from yasmin.core import Field
+from yasmin.core import DType, Field, float32, float64, int32, int64
 from yasmin.ir import loop
 from yasmin.runtime.native import CompiledFunction, compile_cpp
 
@@ -11,6 +11,8 @@ class CppBackend:
 
         params = self._emit_parameters(function)
 
+        lines.append("#include <cstdint>")
+        lines.append("")
         lines.append(f'extern "C" void {function.name}({params}) {{')
 
         for statement in function.body:
@@ -38,14 +40,16 @@ class CppBackend:
         params: list[str] = []
 
         for field in function.fields:
-            params.append(f"double* {field.name}")
+            cpp_type = self._cpp_type(field.dtype)
+            params.append(f"{cpp_type}* {field.name}")
 
         for field in function.fields:
             for dim in range(len(field.dims)):
                 params.append(f"int {field.name}_shape_{dim}")
 
         for scalar in function.scalars:
-            params.append(f"double {scalar.name}")
+            cpp_type = self._cpp_type(scalar.dtype)
+            params.append(f"{cpp_type} {scalar.name}")
 
         return ", ".join(params)
 
@@ -132,3 +136,18 @@ class CppBackend:
             )
 
         return result
+
+    def _cpp_type(self, dtype: DType) -> str:
+        if dtype == float32:
+            return "float"
+
+        if dtype == float64:
+            return "double"
+
+        if dtype == int32:
+            return "std::int32_t"
+
+        if dtype == int64:
+            return "std::int64_t"
+
+        raise TypeError(f"Unsupported native dtype: {dtype.name}")

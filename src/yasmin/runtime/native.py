@@ -10,11 +10,51 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 
-from yasmin.core import Field, Scalar
+from yasmin.core import (
+    DType,
+    Field,
+    Scalar,
+    float32,
+    float64,
+    int32,
+    int64,
+)
 from yasmin.ir import loop
 
 Array = npt.NDArray[Any]
 ScalarValue = int | float
+
+
+def _ctypes_type(dtype: DType) -> type[Any]:
+    if dtype == float32:
+        return ctypes.c_float
+
+    if dtype == float64:
+        return ctypes.c_double
+
+    if dtype == int32:
+        return ctypes.c_int32
+
+    if dtype == int64:
+        return ctypes.c_int64
+
+    raise TypeError(f"Unsupported native dtype: {dtype.name}")
+
+
+def _numpy_dtype(dtype: DType) -> np.dtype[Any]:
+    if dtype == float32:
+        return np.dtype(np.float32)
+
+    if dtype == float64:
+        return np.dtype(np.float64)
+
+    if dtype == int32:
+        return np.dtype(np.int32)
+
+    if dtype == int64:
+        return np.dtype(np.int64)
+
+    raise TypeError(f"Unsupported native dtype: {dtype.name}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +114,7 @@ def compile_cpp(
     except OSError as e:
         directory.cleanup()
         raise RuntimeError(f"Failed to run compiler: {e!r}") from e
+
     return SharedLibrary(
         library=ctypes.CDLL(str(library_path)),
         directory=directory,
@@ -81,25 +122,33 @@ def compile_cpp(
 
 
 class CompiledFunction:
-    def __init__(self, function: loop.Function, shared_library: SharedLibrary) -> None:
+    def __init__(
+        self,
+        function: loop.Function,
+        shared_library: SharedLibrary,
+    ) -> None:
         self.function = function
         self.shared_library = shared_library
 
-        native_function = getattr(shared_library.library, function.name)
+        native_function = getattr(
+            shared_library.library,
+            function.name,
+        )
 
         native_function.restype = None
 
         argtypes: list[Any] = []
 
-        for _field in function.fields:
-            argtypes.append(ctypes.POINTER(ctypes.c_double))
+        for field in function.fields:
+            ctype = _ctypes_type(field.dtype)
+            argtypes.append(ctypes.POINTER(ctype))
 
         for field in function.fields:
             for _dim in field.dims:
                 argtypes.append(ctypes.c_int)
 
-        for _scalar in function.scalars:
-            argtypes.append(ctypes.c_double)
+        for scalar in function.scalars:
+            argtypes.append(_ctypes_type(scalar.dtype))
 
         native_function.argtypes = argtypes
 
@@ -117,20 +166,25 @@ class CompiledFunction:
 
         for field in self.function.fields:
             array = fields[field]
+            expected_dtype = _numpy_dtype(field.dtype)
 
-            if array.dtype != np.float64:
-                raise TypeError(f"Field {field.name} must be of type float64")
+            if array.dtype != expected_dtype:
+                raise TypeError(
+                    f"Field {field.name!r} must have dtype "
+                    f"{expected_dtype.name}, got {array.dtype}"
+                )
 
             if not array.flags.c_contiguous:
-                raise ValueError(f"Field {field.name} must be C-contiguous")
+                raise ValueError(f"Field {field.name!r} must be C-contiguous")
 
             if array.ndim != len(field.dims):
                 raise ValueError(
-                    f"Field {field.name!r} expects {len(field.dims)} dimensions, "
-                    f"got {array.ndim}"
+                    f"Field {field.name!r} expects "
+                    f"{len(field.dims)} dimensions, got {array.ndim}"
                 )
 
-            args.append(array.ctypes.data_as(ctypes.POINTER(ctypes.c_double)))
+            ctype = _ctypes_type(field.dtype)
+            args.append(array.ctypes.data_as(ctypes.POINTER(ctype)))
 
         for field in self.function.fields:
             array = fields[field]
@@ -139,6 +193,7 @@ class CompiledFunction:
                 args.append(int(extent))
 
         for scalar in self.function.scalars:
-            args.append(float(scalar_bindings[scalar]))
+            ctype = _ctypes_type(scalar.dtype)
+            args.append(ctype(scalar_bindings[scalar]))
 
         self._function(*args)
