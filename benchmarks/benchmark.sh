@@ -92,11 +92,9 @@ fi
 for NX in "${SIZES[@]}"; do
     echo "--- Grid size: ${NX}x${NX} ---"
 
-    # Save to CSV
+    # Save to CSV. Always overwrite file
     CSV_PATH="$SCRIPT_DIR/outputs/raw/csv/${PROBLEM}_${NX}.csv"
-    if [ ! -f "$CSV_PATH" ]; then
-        echo "implementation,nx,build_s,gen_s,compile_s,runtime_ms" > "$CSV_PATH"
-    fi
+    echo "implementation,nx,build_s,gen_s,compile_s,runtime_ms" > "$CSV_PATH"
     
     # Yasmin numpy backend
     echo "Running yasmin (NumPy backend)..."
@@ -108,6 +106,17 @@ for NX in "${SIZES[@]}"; do
     yasmin_compile=$(echo "$yasmin_out" | grep "^COMPILE_TIME_S=" | cut -d= -f2)
     yasmin_runtime=$(echo "$yasmin_out" | grep "^RUNTIME_MS=" | cut -d= -f2)
     echo "yasmin_numpy,$NX,$yasmin_build,$yasmin_gen,$yasmin_compile,$yasmin_runtime" >> "$CSV_PATH"
+
+    # Yasmin C++ backend
+    echo "Running yasmin (C++ backend)..."
+    yasmin_cpp_out=$(cd "$PROBLEM_DIR" && python3 run_yasmin_cpp.py "$NX" "$NRUNS")
+    echo "$yasmin_cpp_out"
+    echo ""
+    yasmin_cpp_build=$(echo "$yasmin_cpp_out" | grep "^BUILD_TIME_S=" | cut -d= -f2)
+    yasmin_cpp_gen=$(echo "$yasmin_cpp_out" | grep "^GEN_TIME_S=" | cut -d= -f2)
+    yasmin_cpp_compile=$(echo "$yasmin_cpp_out" | grep "^COMPILE_TIME_S=" | cut -d= -f2)
+    yasmin_cpp_runtime=$(echo "$yasmin_cpp_out" | grep "^RUNTIME_MS=" | cut -d= -f2)
+    echo "yasmin_cpp,$NX,$yasmin_cpp_build,$yasmin_cpp_gen,$yasmin_cpp_compile,$yasmin_cpp_runtime" >> "$CSV_PATH"
     
     # NumPy
     echo "Running NumPy reference..."
