@@ -18,7 +18,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RUNNERS_DIR="$SCRIPT_DIR/runners"
 
 # Grid sizes
-declare -a LAPLACIAN_SIZES=(64 128 256 512 1024 2048)
+declare -a LAPLACIAN_SIZES=(128 256 512 1024 2048 4096 8192)
 declare -a ADVECTION_DIFFUSION_SIZES=(64 128 256 512 1024 2048)
 
 # Parse arguments
@@ -71,8 +71,9 @@ echo ""
 # Create output directory
 mkdir -p "$SCRIPT_DIR/outputs/raw/csv"
 
-# Compile C++ reference if benchmarking laplacian
+# Compile C++ reference implementations if benchmarking laplacian
 CPP_BINARY=""
+OPENMP_CPP_BINARY=""
 if [[ "$PROBLEM" == "laplacian" ]]; then
     echo "Compiling C++ reference..."
     CPP_SOURCE="$PROBLEM_DIR/run_cpp.cpp"
@@ -84,6 +85,18 @@ if [[ "$PROBLEM" == "laplacian" ]]; then
     else
         echo "Warning: C++ source not found at $CPP_SOURCE"
         CPP_BINARY=""
+    fi
+
+    echo "Compiling OpenMP C++ reference..."
+    OPENMP_CPP_SOURCE="$PROBLEM_DIR/run_openmp.cpp"
+    OPENMP_CPP_BINARY="$PROBLEM_DIR/run_openmp"
+
+    if [[ -f "$OPENMP_CPP_SOURCE" ]]; then
+        g++ -O3 -std=c++11 -fopenmp "$OPENMP_CPP_SOURCE" -o "$OPENMP_CPP_BINARY" -lm
+        echo "OpenMP C++ binary compiled: $OPENMP_CPP_BINARY"
+    else
+        echo "Warning: OpenMP C++ source not found at $OPENMP_CPP_SOURCE"
+        OPENMP_CPP_BINARY=""
     fi
     echo ""
 fi
@@ -117,6 +130,17 @@ for NX in "${SIZES[@]}"; do
     yasmin_cpp_compile=$(echo "$yasmin_cpp_out" | grep "^COMPILE_TIME_S=" | cut -d= -f2)
     yasmin_cpp_runtime=$(echo "$yasmin_cpp_out" | grep "^RUNTIME_MS=" | cut -d= -f2)
     echo "yasmin_cpp,$NX,$yasmin_cpp_build,$yasmin_cpp_gen,$yasmin_cpp_compile,$yasmin_cpp_runtime" >> "$CSV_PATH"
+
+    # Yasmin OpenMP backend
+    echo "Running yasmin (OpenMP backend)..."
+    yasmin_openmp_out=$(cd "$PROBLEM_DIR" && OMP_NUM_THREADS=4 python3 run_yasmin_openmp.py "$NX" "$NRUNS")
+    echo "$yasmin_openmp_out"
+    echo ""
+    yasmin_openmp_build=$(echo "$yasmin_openmp_out" | grep "^BUILD_TIME_S=" | cut -d= -f2)
+    yasmin_openmp_gen=$(echo "$yasmin_openmp_out" | grep "^GEN_TIME_S=" | cut -d= -f2)
+    yasmin_openmp_compile=$(echo "$yasmin_openmp_out" | grep "^COMPILE_TIME_S=" | cut -d= -f2)
+    yasmin_openmp_runtime=$(echo "$yasmin_openmp_out" | grep "^RUNTIME_MS=" | cut -d= -f2)
+    echo "yasmin_openmp,$NX,$yasmin_openmp_build,$yasmin_openmp_gen,$yasmin_openmp_compile,$yasmin_openmp_runtime" >> "$CSV_PATH"
     
     # NumPy
     echo "Running NumPy reference..."
@@ -134,6 +158,17 @@ for NX in "${SIZES[@]}"; do
         echo ""
         cpp_runtime=$(echo "$cpp_out" | grep "^RUNTIME_MS=" | cut -d= -f2)
         echo "cpp,$NX,0,0,0,$cpp_runtime" >> "$CSV_PATH"
+    fi
+
+    # OpenMP C++ reference skeleton (if available)
+    if [[ -n "$OPENMP_CPP_BINARY" && -f "$OPENMP_CPP_BINARY" ]]; then
+        echo "Running OpenMP C++ reference..."
+        # TODO make num of threads configurable
+        openmp_cpp_out=$(OMP_NUM_THREADS=4 "$OPENMP_CPP_BINARY" "$NX" "$NRUNS")
+        echo "$openmp_cpp_out"
+        echo ""
+        openmp_cpp_runtime=$(echo "$openmp_cpp_out" | grep "^RUNTIME_MS=" | cut -d= -f2)
+        echo "cpp_openmp,$NX,0,0,0,$openmp_cpp_runtime" >> "$CSV_PATH"
     fi
     
     echo "Results saved to: $CSV_PATH"

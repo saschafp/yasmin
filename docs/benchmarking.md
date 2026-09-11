@@ -24,7 +24,7 @@ The yasmin implementation uses a single field read and one write, on the interio
 - Data type: `float64`, `double`
 - Boundary conditions: homogeneous Dirichlet, 0 on all outer boundaries
 - Initial condition: Sinusoidal field.
-- Grid sizes: `64, 128, 256, 512, 1024, 2048`
+- Grid sizes: `128, 256, 512, 1024, 2048, 4096, 8192`
 - Total runs per configuration: 5 timed runs, 2 warm-up runs
 - Time stepping: single stencil application for the kernel benchmark, plus a short repeated iteration benchmark with `nsteps = 10`
 - Compiler/runner settings:
