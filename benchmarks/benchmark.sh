@@ -71,6 +71,23 @@ echo ""
 # Create output directory
 mkdir -p "$SCRIPT_DIR/outputs/raw/csv"
 
+# Compile C++ reference if benchmarking laplacian
+CPP_BINARY=""
+if [[ "$PROBLEM" == "laplacian" ]]; then
+    echo "Compiling C++ reference..."
+    CPP_SOURCE="$PROBLEM_DIR/run_cpp.cpp"
+    CPP_BINARY="$PROBLEM_DIR/run_cpp"
+    
+    if [[ -f "$CPP_SOURCE" ]]; then
+        g++ -O3 -std=c++11 "$CPP_SOURCE" -o "$CPP_BINARY" -lm
+        echo "C++ binary compiled: $CPP_BINARY"
+    else
+        echo "Warning: C++ source not found at $CPP_SOURCE"
+        CPP_BINARY=""
+    fi
+    echo ""
+fi
+
 # Run benchmarks for each size
 for NX in "${SIZES[@]}"; do
     echo "--- Grid size: ${NX}x${NX} ---"
@@ -83,7 +100,7 @@ for NX in "${SIZES[@]}"; do
     
     # Yasmin numpy backend
     echo "Running yasmin (NumPy backend)..."
-    yasmin_out=$(cd "$PROBLEM_DIR" && python3 run_yasmin.py "numpy" "$NX" "$NRUNS")
+    yasmin_out=$(cd "$PROBLEM_DIR" && python3 run_yasmin_np.py "numpy" "$NX" "$NRUNS")
     echo "$yasmin_out"
     echo ""
     yasmin_build=$(echo "$yasmin_out" | grep "^BUILD_TIME_S=" | cut -d= -f2)
@@ -99,6 +116,16 @@ for NX in "${SIZES[@]}"; do
     echo ""
     numpy_runtime=$(echo "$numpy_out" | grep "^RUNTIME_MS=" | cut -d= -f2)
     echo "numpy,$NX,0,0,0,$numpy_runtime" >> "$CSV_PATH"
+    
+    # C++ reference (if available)
+    if [[ -n "$CPP_BINARY" && -f "$CPP_BINARY" ]]; then
+        echo "Running C++ reference..."
+        cpp_out=$("$CPP_BINARY" "$NX" "$NRUNS")
+        echo "$cpp_out"
+        echo ""
+        cpp_runtime=$(echo "$cpp_out" | grep "^RUNTIME_MS=" | cut -d= -f2)
+        echo "cpp,$NX,0,0,0,$cpp_runtime" >> "$CSV_PATH"
+    fi
     
     echo "Results saved to: $CSV_PATH"
     echo ""

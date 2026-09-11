@@ -23,7 +23,7 @@ The yasmin implementation uses a single field read and one write, on the interio
 - Stencil type: 5-point Laplacian
 - Data type: `float64`, `double`
 - Boundary conditions: homogeneous Dirichlet, 0 on all outer boundaries
-- Initial condition: fixed deterministic field with value 1 in a square of side `N / 2`, with `N = nx = ny`, 0 everywhere else.
+- Initial condition: Sinusoidal field.
 - Grid sizes: `64, 128, 256, 512, 1024, 2048`
 - Total runs per configuration: 5 timed runs, 2 warm-up runs
 - Time stepping: single stencil application for the kernel benchmark, plus a short repeated iteration benchmark with `nsteps = 10`
