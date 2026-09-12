@@ -3,14 +3,15 @@
 #
 # Runs all grid sizes specified in docs/benchmarking.md for the selected problem.
 #
-# Usage: ./benchmark.sh [--problem <name>] [--nruns <n>]
+# Usage: ./benchmark.sh [--problem <name>] [--nruns <n>] [--nthreads <n>]
 #   --problem: problem name (laplacian, advection_diffusion; default: laplacian)
-#   --nruns:   number of timed runs per benchmark (default: 5, per spec)
+#   --nruns:   number of timed runs per benchmark (default: 5)
+#   --nthreads: number of threads to use (default: 1)
 #
 # Example:
 #   ./benchmark.sh
 #   ./benchmark.sh --problem laplacian --nruns 5
-#   ./benchmark.sh --problem advection_diffusion
+#   ./benchmark.sh --problem advection_diffusion --nthreads 72
 
 set -e
 
@@ -24,6 +25,7 @@ declare -a ADVECTION_DIFFUSION_SIZES=(64 128 256 512 1024 2048)
 # Parse arguments
 PROBLEM="laplacian"
 NRUNS=5
+NTHREADS=1
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -35,7 +37,12 @@ while [[ $# -gt 0 ]]; do
             NRUNS="$2"
             shift 2
             ;;
-        *)
+        --nthreads)
+            NTHREADS="$2"
+            export OMP_NUM_THREADS="$NTHREADS"
+            shift 2
+            ;;
+        *)  
             echo "Unknown option: $1" >&2
             exit 1
             ;;
@@ -133,7 +140,7 @@ for NX in "${SIZES[@]}"; do
 
     # Yasmin OpenMP backend
     echo "Running yasmin (OpenMP backend)..."
-    yasmin_openmp_out=$(cd "$PROBLEM_DIR" && OMP_NUM_THREADS=4 python3 run_yasmin_openmp.py "$NX" "$NRUNS")
+    yasmin_openmp_out=$(cd "$PROBLEM_DIR" && OMP_NUM_THREADS=$NTHREADS python3 run_yasmin_openmp.py "$NX" "$NRUNS")
     echo "$yasmin_openmp_out"
     echo ""
     yasmin_openmp_build=$(echo "$yasmin_openmp_out" | grep "^BUILD_TIME_S=" | cut -d= -f2)
@@ -175,7 +182,7 @@ for NX in "${SIZES[@]}"; do
     if [[ -n "$OPENMP_CPP_BINARY" && -f "$OPENMP_CPP_BINARY" ]]; then
         echo "Running OpenMP C++ reference..."
         # TODO make num of threads configurable
-        openmp_cpp_out=$(OMP_NUM_THREADS=8 "$OPENMP_CPP_BINARY" "$NX" "$NRUNS")
+        openmp_cpp_out=$(OMP_NUM_THREADS=$NTHREADS "$OPENMP_CPP_BINARY" "$NX" "$NRUNS")
         echo "$openmp_cpp_out"
         echo ""
         openmp_cpp_runtime=$(echo "$openmp_cpp_out" | grep "^RUNTIME_MS=" | cut -d= -f2)
