@@ -1,11 +1,9 @@
 The goal of the benchmarking infrastructure is to assess the correctness of yasmin code, measure the overhead of the code generation pipeline, and compare the efficiency of the resulting code to hand optimized programs and other DSLs.
 
-To that end, we use two examples. First, the classic 2D (TODO: 3D?) Laplacian stencil. Second, TODO (maybe Burger's equation, like GT4Py?). For both examples we set grid sizes, number of iterations, combinations of cores and threads to test and any other variable. For correctness, we compare the yasmin result to a simple python implementation. We time code generation, compilation (if it applies), and runtime. We compare each backend to a different reference implementation:
- - NumPy backend -> NumPy reference implementation
+To that end, we use two examples. First, the classic 2D (TODO: 3D?) Laplacian stencil. Second, TODO (maybe Burger's equation, like GT4Py?). For both examples we set grid sizes, number of iterations, combinations of cores and threads to test and any other variable. For correctness, we compare the yasmin result to a simple python implementation. We time code generation, compilation (if it applies), and runtime. We compare each backend to different reference implementations:
+ - NumPy backend -> NumPy reference implementation, gt4py reference implementation with numpy backend
  - C++ backend -> C++ reference implementation
  - OpenMP backend -> C++ OpenMP reference implementation
- - CuPy backend -> Cupy reference implementation
- - CUDA backend -> CUDA reference implementation
 
 ## Example 1 - Laplacian
 

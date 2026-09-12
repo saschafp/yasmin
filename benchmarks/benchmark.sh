@@ -142,6 +142,17 @@ for NX in "${SIZES[@]}"; do
     yasmin_openmp_runtime=$(echo "$yasmin_openmp_out" | grep "^RUNTIME_MS=" | cut -d= -f2)
     echo "yasmin_openmp,$NX,$yasmin_openmp_build,$yasmin_openmp_gen,$yasmin_openmp_compile,$yasmin_openmp_runtime" >> "$CSV_PATH"
     
+    # GT4Py reference
+    echo "Running GT4Py reference..."
+    gt4py_out=$(cd "$PROBLEM_DIR" && python3 run_gt4py.py "$NX" "$NRUNS")
+    echo "$gt4py_out"
+    echo ""
+    gt4py_build=$(echo "$gt4py_out" | grep "^BUILD_TIME_S=" | cut -d= -f2)
+    gt4py_gen=$(echo "$gt4py_out" | grep "^GEN_TIME_S=" | cut -d= -f2)
+    gt4py_compile=$(echo "$gt4py_out" | grep "^COMPILE_TIME_S=" | cut -d= -f2)
+    gt4py_runtime=$(echo "$gt4py_out" | grep "^RUNTIME_MS=" | cut -d= -f2)
+    echo "gt4py_numpy,$NX,$gt4py_build,$gt4py_gen,$gt4py_compile,$gt4py_runtime" >> "$CSV_PATH"
+
     # NumPy
     echo "Running NumPy reference..."
     numpy_out=$(cd "$PROBLEM_DIR" && python3 run_numpy.py "$NX" "$NRUNS")
@@ -160,11 +171,11 @@ for NX in "${SIZES[@]}"; do
         echo "cpp,$NX,0,0,0,$cpp_runtime" >> "$CSV_PATH"
     fi
 
-    # OpenMP C++ reference skeleton (if available)
+    # OpenMP C++ reference (if available)
     if [[ -n "$OPENMP_CPP_BINARY" && -f "$OPENMP_CPP_BINARY" ]]; then
         echo "Running OpenMP C++ reference..."
         # TODO make num of threads configurable
-        openmp_cpp_out=$(OMP_NUM_THREADS=4 "$OPENMP_CPP_BINARY" "$NX" "$NRUNS")
+        openmp_cpp_out=$(OMP_NUM_THREADS=8 "$OPENMP_CPP_BINARY" "$NX" "$NRUNS")
         echo "$openmp_cpp_out"
         echo ""
         openmp_cpp_runtime=$(echo "$openmp_cpp_out" | grep "^RUNTIME_MS=" | cut -d= -f2)
