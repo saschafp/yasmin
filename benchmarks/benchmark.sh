@@ -39,7 +39,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         --nthreads)
             NTHREADS="$2"
-            export OMP_NUM_THREADS="$NTHREADS"
             shift 2
             ;;
         *)  
@@ -181,7 +180,6 @@ for NX in "${SIZES[@]}"; do
     # OpenMP C++ reference (if available)
     if [[ -n "$OPENMP_CPP_BINARY" && -f "$OPENMP_CPP_BINARY" ]]; then
         echo "Running OpenMP C++ reference..."
-        # TODO make num of threads configurable
         openmp_cpp_out=$(OMP_NUM_THREADS=$NTHREADS "$OPENMP_CPP_BINARY" "$NX" "$NRUNS")
         echo "$openmp_cpp_out"
         echo ""

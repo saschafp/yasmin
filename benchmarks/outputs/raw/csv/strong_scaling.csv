@@ -1,0 +1,17 @@
+implementation,nx,threads,runtime_ms
+yasmin_openmp,2048,1,114.576099
+cpp_openmp,2048,1,17.872167
+yasmin_openmp,2048,2,113.261575
+cpp_openmp,2048,2,14.202905
+yasmin_openmp,2048,3,112.576968
+cpp_openmp,2048,3,13.518508
+yasmin_openmp,2048,4,113.286130
+cpp_openmp,2048,4,13.282635
+yasmin_openmp,2048,5,114.997087
+cpp_openmp,2048,5,16.193852
+yasmin_openmp,2048,6,114.617141
+cpp_openmp,2048,6,15.844468
+yasmin_openmp,2048,7,114.776953
+cpp_openmp,2048,7,16.187275
+yasmin_openmp,2048,8,114.601550
+cpp_openmp,2048,8,15.955848
