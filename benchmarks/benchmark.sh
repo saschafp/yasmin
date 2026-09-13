@@ -20,7 +20,7 @@ RUNNERS_DIR="$SCRIPT_DIR/runners"
 
 # Grid sizes
 declare -a LAPLACIAN_SIZES=(128 256 512 1024 2048 4096 8192)
-declare -a ADVECTION_DIFFUSION_SIZES=(64 128 256 512 1024 2048)
+declare -a ADVECTION_DIFFUSION_SIZES=(32 64 128 256 512 1024 2048)
 
 # Parse arguments
 PROBLEM="laplacian"
@@ -77,10 +77,10 @@ echo ""
 # Create output directory
 mkdir -p "$SCRIPT_DIR/outputs/raw/csv"
 
-# Compile C++ reference implementations if benchmarking laplacian
+# Compile C++ reference implementations when a plain C++ baseline exists.
 CPP_BINARY=""
 OPENMP_CPP_BINARY=""
-if [[ "$PROBLEM" == "laplacian" ]]; then
+if [[ "$PROBLEM" == "laplacian" || "$PROBLEM" == "advection_diffusion" ]]; then
     echo "Compiling C++ reference..."
     CPP_SOURCE="$PROBLEM_DIR/run_cpp.cpp"
     CPP_BINARY="$PROBLEM_DIR/run_cpp"
@@ -110,7 +110,7 @@ fi
 # Run benchmarks for each size
 for NX in "${SIZES[@]}"; do
     echo "--- Grid size: ${NX}x${NX} ---"
-
+    
     # Save to CSV. Always overwrite file
     CSV_PATH="$SCRIPT_DIR/outputs/raw/csv/${PROBLEM}_${NX}.csv"
     echo "implementation,nx,build_s,gen_s,compile_s,runtime_ms" > "$CSV_PATH"

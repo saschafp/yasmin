@@ -28,24 +28,8 @@ The yasmin implementation uses a single field read and one write, on the interio
 - Compiler/runner settings:
   - `OMP_NUM_THREADS` set to the tested thread count
   - CPU thread counts: 1 through 72
-  - GPU TODO
-
-### Timings to measure
-
-For every backend and every grid size:
-
-1. Code generation time
-   - creation of the yasmin stencil/operator
-   - lowering to backend-specific IR
-   - backend code emission
-2. Compilation time
-   - C++ / OpenMP compile step, if applicable
-   - any JIT startup or cache warm-up cost
-3. Runtime
-   - time per stencil application
-   - total time for `nsteps = 10`
 
 
-## Example 2
+## Example 2 -  two-dimensional viscid Burgers' equations
 
-If we use 2D inviscid Burger's equation, we can directly use the existing GT4Py implementation as a comparison (examples/cartesian/demo_burgers.ipynb in the GT4Py repo) 
+In this example, the 2D viscid Burgers' equations are solved using a fifth-order upwind advection scheme and a fourth-order centered scheme for diffusion. See https://github.com/GridTools/gt4py/blob/main/examples/cartesian/demo_burgers.ipynb for more details
