@@ -69,9 +69,9 @@ fi
 echo ""
 
 # Save to CSV. Always overwrite file
-STRONG_PATH="$SCRIPT_DIR/outputs/raw/csv/strong_scaling.csv"
+STRONG_PATH="$SCRIPT_DIR/outputs/raw/csv/${PROBLEM}_strong_scaling.csv"
 echo "implementation,nx,threads,runtime_ms" > "$STRONG_PATH"
-WEAK_PATH="$SCRIPT_DIR/outputs/raw/csv/weak_scaling.csv"
+WEAK_PATH="$SCRIPT_DIR/outputs/raw/csv/${PROBLEM}_weak_scaling.csv"
 echo "implementation,nx,threads,runtime_ms" > "$WEAK_PATH"
 
 NTHREADS=1
