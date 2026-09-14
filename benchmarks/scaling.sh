@@ -37,8 +37,9 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-SIZE_PER_THRED=256
-STRONG_SCALE_SIZE=$((SIZE_PER_THRED * MAX_THREADS))
+
+SIZE_PER_THREAD=$((256 * 256))
+STRONG_SCALE_SIZE=$((256 * MAX_THREADS))
 
 PROBLEM_DIR="$RUNNERS_DIR/$PROBLEM"
 
@@ -77,8 +78,17 @@ echo "implementation,nx,threads,runtime_ms" > "$WEAK_PATH"
 NTHREADS=1
 while [[ $NTHREADS -le $MAX_THREADS ]]; do
     echo "--- number of threads: $NTHREADS ---"
+    
+    export OMP_NUM_THREADS=$NTHREADS
 
-    WEAK_SCALE_SIZE=$((NTHREADS * SIZE_PER_THRED))
+    WEAK_SCALE_SIZE=$(python3 - "$NTHREADS" "$SIZE_PER_THREAD" <<'PY'
+import math
+import sys
+nthreads = int(sys.argv[1])
+base = int(sys.argv[2])
+print(int(round(math.sqrt(base*nthreads))))
+PY
+)
 
     # Yasmin OpenMP backend
     echo "Running yasmin (OpenMP backend)..."
