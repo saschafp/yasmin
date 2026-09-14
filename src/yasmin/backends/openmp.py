@@ -2,15 +2,13 @@ from dataclasses import dataclass
 
 from yasmin.analysis.omp_heuristic import parallel_config
 from yasmin.analysis.system import available_cores
-from yasmin.backends.cpp import CppBackend, Shapes
-from yasmin.core import Field
+from yasmin.backends.cpp import CppBackend, CppOptions, Shapes
 from yasmin.ir import loop
 from yasmin.runtime.native import CompiledFunction, compile_cpp
 
 
 @dataclass(frozen=True)
-class OpenMPOptions:
-    use_restrict: bool = True
+class OpenMPOptions(CppOptions):
     use_collapse: bool = True
     schedule: str | None = "static"  # None | "static" | "dynamic" | "guided"
     schedule_chunk: int | None = (
@@ -18,7 +16,7 @@ class OpenMPOptions:
     )
     num_threads: int | None = None  # None = auto-detect
     adaptive: bool = (
-        False  # use shape based heuristic to deduce schedule/collapse settings
+        True  # use shape based heuristic to deduce schedule/collapse settings
     )
     min_iters_per_thread: int = 1_000  # TODO: extract dynamically based on hardware
     extra_compile_flags: tuple[str, ...] = ("-march=native", "-fno-math-errno")
@@ -27,7 +25,6 @@ class OpenMPOptions:
     def baseline(cls) -> "OpenMPOptions":
         """OpenMP without any optimizations"""
         return cls(
-            use_restrict=False,
             use_collapse=False,
             schedule=None,
             num_threads=None,
@@ -50,11 +47,6 @@ class OpenMPBackend(CppBackend):
             extra_flags=("-fopenmp", *self.options.extra_compile_flags),
         )
         return CompiledFunction(function=function, shared_library=shared_library)
-
-    def _emit_field_param(self, field: Field) -> str:
-        if not self.options.use_restrict:
-            return super()._emit_field_param(field)
-        return f"double* __restrict__ {field.name}"
 
     @staticmethod
     def _extent_of(expr, *, shapes: Shapes) -> int | None:

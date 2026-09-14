@@ -43,6 +43,7 @@ def test_emit_openmp_parallel_loop() -> None:
     )
 
     source = OpenMPBackend().source(function)
+    print(source)
 
     assert "#pragma omp parallel for" in source
     assert "for (int x = 1;" in source
@@ -176,3 +177,6 @@ def test_execute_compiled_openmp_stencil() -> None:
     expected[1:-1] = u_data[:-2] + u_data[2:]
 
     np.testing.assert_allclose(out_data, expected)
+
+
+test_emit_openmp_parallel_loop()

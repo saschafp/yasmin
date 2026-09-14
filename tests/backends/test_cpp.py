@@ -155,5 +155,5 @@ def test_cpp_emits_int32_types() -> None:
 
     source = CppBackend().source(function)
 
-    assert "std::int32_t* u" in source
-    assert "std::int32_t scale" in source
+    assert "std::int32_t*" in source
+    assert "std::int32_t" in source

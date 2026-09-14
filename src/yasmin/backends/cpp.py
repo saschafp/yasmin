@@ -1,4 +1,6 @@
 from collections.abc import Mapping
+from dataclasses import dataclass
+
 from yasmin.core import DType, Field, float32, float64, int32, int64
 from yasmin.ir import loop
 from yasmin.runtime.native import CompiledFunction, compile_cpp
@@ -6,8 +8,16 @@ from yasmin.runtime.native import CompiledFunction, compile_cpp
 Shapes = Mapping[Field, tuple[int, ...]]
 
 
+@dataclass(frozen=True)
+class CppOptions:
+    use_restrict: bool = True
+
+
 class CppBackend:
     name = "cpp"
+
+    def __init__(self, options: CppOptions | None = None) -> None:
+        self.options = options or CppOptions()
 
     def source(self, function: loop.Function, shapes: Shapes | None = None) -> str:
         lines: list[str] = []
@@ -47,12 +57,11 @@ class CppBackend:
         params: list[str] = []
 
         for field in function.fields:
-<<<<<<< HEAD
-            params.append(self._emit_field_param(field))
-=======
             cpp_type = self._cpp_type(field.dtype)
-            params.append(f"{cpp_type}* {field.name}")
->>>>>>> 9d8efd96f08a2850ce06941b1788a085a3545514
+            if not self.options.use_restrict:
+                params.append(f"{cpp_type}* {field.name}")
+            else:
+                params.append(f"{cpp_type}* __restrict__ {field.name}")
 
         for field in function.fields:
             for dim in range(len(field.dims)):
@@ -63,9 +72,6 @@ class CppBackend:
             params.append(f"{cpp_type} {scalar.name}")
 
         return ", ".join(params)
-
-    def _emit_field_param(self, field: Field) -> str:
-        return f"double* {field.name}"
 
     def _emit_stmt(
         self,
