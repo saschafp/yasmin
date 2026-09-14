@@ -1,6 +1,5 @@
 from collections.abc import Mapping
-
-from yasmin.core import Field
+from yasmin.core import DType, Field, float32, float64, int32, int64
 from yasmin.ir import loop
 from yasmin.runtime.native import CompiledFunction, compile_cpp
 
@@ -15,6 +14,8 @@ class CppBackend:
 
         params = self._emit_parameters(function)
 
+        lines.append("#include <cstdint>")
+        lines.append("")
         lines.append(f'extern "C" void {function.name}({params}) {{')
 
         for statement in function.body:
@@ -46,14 +47,20 @@ class CppBackend:
         params: list[str] = []
 
         for field in function.fields:
+<<<<<<< HEAD
             params.append(self._emit_field_param(field))
+=======
+            cpp_type = self._cpp_type(field.dtype)
+            params.append(f"{cpp_type}* {field.name}")
+>>>>>>> 9d8efd96f08a2850ce06941b1788a085a3545514
 
         for field in function.fields:
             for dim in range(len(field.dims)):
                 params.append(f"int {field.name}_shape_{dim}")
 
         for scalar in function.scalars:
-            params.append(f"double {scalar.name}")
+            cpp_type = self._cpp_type(scalar.dtype)
+            params.append(f"{cpp_type} {scalar.name}")
 
         return ", ".join(params)
 
@@ -136,15 +143,29 @@ class CppBackend:
         field: Field,
         indices: tuple[loop.Expr, ...],
     ) -> str:
-        if len(indices) == 1:
-            return self._emit_expr(indices[0])
+        if not indices:
+            raise ValueError("Cannot flatten an empty index tuple")
 
-        if len(indices) == 2:
-            i = self._emit_expr(indices[0])
-            j = self._emit_expr(indices[1])
+        result = self._emit_expr(indices[0])
 
-            return f"({i} * {field.name}_shape_1 + {j})"
+        for axis, index in enumerate(indices[1:], start=1):
+            result = (
+                f"({result} * {field.name}_shape_{axis} + {self._emit_expr(index)})"
+            )
 
-        raise NotImplementedError(
-            "C++ backend currently supports only 1D and 2D fields"
-        )
+        return result
+
+    def _cpp_type(self, dtype: DType) -> str:
+        if dtype == float32:
+            return "float"
+
+        if dtype == float64:
+            return "double"
+
+        if dtype == int32:
+            return "std::int32_t"
+
+        if dtype == int64:
+            return "std::int64_t"
+
+        raise TypeError(f"Unsupported native dtype: {dtype.name}")

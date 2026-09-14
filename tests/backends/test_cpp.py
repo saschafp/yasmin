@@ -1,7 +1,7 @@
 import numpy as np
 
 from yasmin.backends.cpp import CppBackend
-from yasmin.core import Dimension, Field, float64
+from yasmin.core import Dimension, Field, Scalar, float64, int32
 from yasmin.ir import loop
 
 
@@ -138,3 +138,22 @@ def test_execute_compiled_cpp_stencil() -> None:
     expected[1:-1] = u_data[:-2] + u_data[2:]
 
     np.testing.assert_allclose(out_data, expected)
+
+
+def test_cpp_emits_int32_types() -> None:
+    x = Dimension("x")
+
+    u = Field("u", dims=(x,), dtype=int32)
+    scale = Scalar("scale", dtype=int32)
+
+    function = loop.Function(
+        name="kernel",
+        fields=(u,),
+        scalars=(scale,),
+        body=(),
+    )
+
+    source = CppBackend().source(function)
+
+    assert "std::int32_t* u" in source
+    assert "std::int32_t scale" in source
