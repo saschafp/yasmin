@@ -37,9 +37,13 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-
-SIZE_PER_THREAD=$((256 * 256))
-STRONG_SCALE_SIZE=$((256 * MAX_THREADS))
+if [ "$PROBLEM" == "laplacian"]; then
+    SIZE_PER_THREAD=$((256 * 256))
+    STRONG_SCALE_SIZE=$((256 * MAX_THREADS))
+else
+    SIZE_PER_THREAD=$((64 * 64))
+    STRONG_SCALE_SIZE=$((64 * MAX_THREADS))
+fi
 
 PROBLEM_DIR="$RUNNERS_DIR/$PROBLEM"
 
