@@ -109,15 +109,16 @@ def plot_scaling(
     ideal = [100] * len(all_threads) if mode == "weak" else all_threads
     axis.plot(all_threads, ideal, "--", color="gray", label="Ideal")
 
-    axis.set_ylabel(
-        "Efficiency (%)" if mode == "weak" else "Speedup vs. own one-thread runtime"
-    )
+    axis.set_ylabel("Efficiency (%)" if mode == "weak" else "Speedup")
     axis.set_xlabel("Threads")
     axis.set_title("Weak Scaling" if mode == "weak" else "Strong Scaling")
 
-    axis.set_xscale("log", base=2)
+    if mode == "weak":
+        axis.set_xscale("log", base=2)
+
     axis.set_xticks(all_threads)
     axis.set_xticklabels([str(thread) for thread in all_threads])
+
     axis.grid(True, linestyle="--", alpha=0.4)
     axis.legend()
 
