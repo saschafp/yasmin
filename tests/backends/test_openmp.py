@@ -2,11 +2,12 @@ import numpy as np
 import pytest
 
 from yasmin.backends.openmp import OpenMPBackend
+from yasmin.compiler.config import OpenMPOptions
+from yasmin.compiler.openmp import resolve_openmp_config
 from yasmin.core import Dimension, Field, float64
 from yasmin.ir import loop
 
 
-@pytest.mark.openmp
 def test_emit_openmp_parallel_loop() -> None:
     x = Dimension("x")
 
@@ -42,8 +43,14 @@ def test_emit_openmp_parallel_loop() -> None:
         ),
     )
 
-    source = OpenMPBackend().source(function)
-    print(source)
+    config = resolve_openmp_config(
+        function,
+        options=OpenMPOptions(),
+    )
+
+    source = OpenMPBackend(
+        config=config,
+    ).source(function)
 
     assert "#pragma omp parallel for" in source
     assert "for (int x = 1;" in source
@@ -97,7 +104,14 @@ def test_parallelizes_only_outermost_loop() -> None:
         body=(outer,),
     )
 
-    source = OpenMPBackend().source(function)
+    config = resolve_openmp_config(
+        function,
+        options=OpenMPOptions(),
+    )
+
+    source = OpenMPBackend(
+        config=config,
+    ).source(function)
 
     assert source.count("#pragma omp parallel for") == 1
     assert "#pragma omp parallel for" in source
@@ -164,7 +178,14 @@ def test_execute_compiled_openmp_stencil() -> None:
     u_data = np.arange(16, dtype=np.float64)
     out_data = np.zeros_like(u_data)
 
-    compiled = OpenMPBackend().compile(function)
+    config = resolve_openmp_config(
+        function,
+        options=OpenMPOptions(),
+    )
+
+    compiled = OpenMPBackend(
+        config=config,
+    ).compile(function)
 
     compiled(
         fields={
@@ -177,6 +198,3 @@ def test_execute_compiled_openmp_stencil() -> None:
     expected[1:-1] = u_data[:-2] + u_data[2:]
 
     np.testing.assert_allclose(out_data, expected)
-
-
-test_emit_openmp_parallel_loop()

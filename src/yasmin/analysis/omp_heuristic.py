@@ -45,17 +45,25 @@ def parallel_config(
     outer_threads = threads_for(outer_extent)
 
     can_collapse = collapse_enabled and inner_extent is not None and inner_extent > 0
-    combined_extent = outer_extent * inner_extent if can_collapse else outer_extent
-    combined_threads = threads_for(combined_extent) if can_collapse else outer_threads
+
+    if can_collapse and inner_extent is not None:
+        combined_extent = outer_extent * inner_extent
+        combined_threads = threads_for(combined_extent)
+    else:
+        combined_extent = outer_extent
+        combined_threads = outer_threads
 
     should_collapse = can_collapse and combined_threads > outer_threads
 
     extent = combined_extent if should_collapse else outer_extent
     num_threads = combined_threads if should_collapse else outer_threads
 
-    if extent < min_iters_per_thread:
+    if extent < min_iters_per_thread or num_threads <= 1:
         return ParallelConfig(
-            parallelize=False, collapse=False, num_threads=None, schedule_chunk=None
+            parallelize=False,
+            collapse=False,
+            num_threads=None,
+            schedule_chunk=None,
         )
 
     schedule_chunk = None

@@ -1,16 +1,7 @@
-from collections.abc import Mapping
-from dataclasses import dataclass
-
+from yasmin.compiler.config import CppOptions
 from yasmin.core import DType, Field, float32, float64, int32, int64
 from yasmin.ir import loop
 from yasmin.runtime.native import CompiledFunction, compile_cpp
-
-Shapes = Mapping[Field, tuple[int, ...]]
-
-
-@dataclass(frozen=True)
-class CppOptions:
-    use_restrict: bool = True
 
 
 class CppBackend:
@@ -19,7 +10,7 @@ class CppBackend:
     def __init__(self, options: CppOptions | None = None) -> None:
         self.options = options or CppOptions()
 
-    def source(self, function: loop.Function, shapes: Shapes | None = None) -> str:
+    def source(self, function: loop.Function) -> str:
         lines: list[str] = []
 
         params = self._emit_parameters(function)
@@ -28,18 +19,24 @@ class CppBackend:
         lines.append("")
         lines.append(f'extern "C" void {function.name}({params}) {{')
 
-        for statement in function.body:
-            lines.extend(self._emit_stmt(statement, indent=1, shapes=shapes))
+        for top_level_index, statement in enumerate(function.body):
+            lines.extend(
+                self._emit_stmt(
+                    statement,
+                    indent=1,
+                    top_level_index=top_level_index,
+                )
+            )
 
         lines.append("}")
 
         return "\n".join(lines)
 
     def compile(
-        self, function: loop.Function, shapes: Shapes | None = None
+        self,
+        function: loop.Function,
     ) -> CompiledFunction:
-        # print(self.soruce(function))
-        shared_library = compile_cpp(self.source(function, shapes=shapes))
+        shared_library = compile_cpp(self.source(function))
 
         return CompiledFunction(function=function, shared_library=shared_library)
 
@@ -49,7 +46,7 @@ class CppBackend:
         *,
         indent: int,
         loop_depth: int,
-        shapes: Shapes | None = None,
+        top_level_index: int,
     ) -> list[str]:
         return []
 
@@ -79,7 +76,7 @@ class CppBackend:
         *,
         indent: int,
         loop_depth: int = 0,
-        shapes: Shapes | None = None,
+        top_level_index: int,
     ) -> list[str]:
         prefix = "    " * indent
 
@@ -90,7 +87,10 @@ class CppBackend:
 
             case loop.For(index=index, lower=lower, upper=upper, body=body):
                 lines = self._emit_loop_prefix(
-                    statement, indent=indent, loop_depth=loop_depth, shapes=shapes
+                    statement,
+                    indent=indent,
+                    loop_depth=loop_depth,
+                    top_level_index=top_level_index,
                 )
 
                 lines.append(
@@ -106,7 +106,7 @@ class CppBackend:
                             child,
                             indent=indent + 1,
                             loop_depth=loop_depth + 1,
-                            shapes=shapes,
+                            top_level_index=top_level_index,
                         )
                     )
 
