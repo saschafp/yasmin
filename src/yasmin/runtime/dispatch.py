@@ -1,92 +1,15 @@
 from collections.abc import Mapping
-from typing import Any, Literal
+from typing import Any
 
 import numpy.typing as npt
 
-from yasmin.backends import CppBackend, NumPyBackend, OpenMPBackend
-from yasmin.compiler.config import CppOptions, FieldShapes, OpenMPOptions
-from yasmin.compiler.openmp import OpenMPConfig, resolve_openmp_config
+from yasmin.backends import NumPyBackend
+from yasmin.compiler.compile import _compile_function
+from yasmin.compiler.config import CompileConfig
 from yasmin.frontend import Field, Operator, Scalar
-from yasmin.ir import loop
 from yasmin.lowering import lower
-from yasmin.runtime.native import CompiledFunction
 
 Array = npt.NDArray[Any]
-
-CppCacheKey = tuple[
-    Literal["cpp"],
-    loop.Function,
-    CppOptions,
-]
-
-OpenMPCacheKey = tuple[
-    Literal["openmp"],
-    loop.Function,
-    OpenMPConfig,
-]
-
-CompilationCacheKey = CppCacheKey | OpenMPCacheKey
-
-_compilation_cache: dict[
-    CompilationCacheKey,
-    CompiledFunction,
-] = {}
-
-
-def _get_compiled_function(
-    backend: str,
-    function: loop.Function,
-    shapes: FieldShapes,
-) -> CompiledFunction:
-    if backend == "cpp":
-        options = CppOptions()
-
-        key: CompilationCacheKey = (
-            "cpp",
-            function,
-            options,
-        )
-
-        cached = _compilation_cache.get(key)
-        if cached is not None:
-            return cached
-
-        compiled_function = CppBackend(
-            options=options,
-        ).compile(function)
-
-    elif backend == "openmp":
-        options = OpenMPOptions()
-
-        config = resolve_openmp_config(
-            function,
-            options=options,
-            shapes=shapes,
-        )
-
-        key = (
-            "openmp",
-            function,
-            config,
-        )
-
-        cached = _compilation_cache.get(key)
-        if cached is not None:
-            return cached
-
-        compiled_function = OpenMPBackend(
-            config=config,
-        ).compile(function)
-
-    else:
-        raise ValueError(f"Unknown backend: {backend!r}")
-
-    _compilation_cache[key] = compiled_function
-    return compiled_function
-
-
-def _clear_compilation_cache() -> None:
-    _compilation_cache.clear()
 
 
 def execute(
@@ -109,6 +32,17 @@ def execute(
         )
         return
 
+    if backend == "cpp":
+        config = CompileConfig(
+            backend="cpp",
+        )
+    elif backend == "openmp":
+        config = CompileConfig(
+            backend="openmp",
+        )
+    else:
+        raise ValueError(f"Unknown backend: {backend!r}")
+
     function = lower(
         operator=operator_ir,
         name="kernel",
@@ -116,13 +50,13 @@ def execute(
 
     shapes = {field: array.shape for field, array in field_bindings.items()}
 
-    compiled_function = _get_compiled_function(
-        backend,
+    compiled = _compile_function(
         function,
-        shapes,
+        config=config,
+        shapes=shapes,
     )
 
-    compiled_function(
+    compiled(
         fields=field_bindings,
         scalars=scalar_bindings,
     )

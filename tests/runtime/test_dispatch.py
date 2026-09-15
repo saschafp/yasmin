@@ -5,15 +5,15 @@ import pytest
 
 import yasmin as yasi
 import yasmin.compiler.openmp as openmp_compiler
-import yasmin.runtime.dispatch as dispatch
 from yasmin.backends.cpp import CppBackend
 from yasmin.backends.openmp import OpenMPBackend
+from yasmin.compiler.compile import _clear_compilation_cache
 
 
 def test_cpp_compilation_cache_reuses_kernel_across_shapes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dispatch._clear_compilation_cache()
+    _clear_compilation_cache()
 
     x = yasi.Dimension("x")
 
@@ -66,7 +66,7 @@ def test_cpp_compilation_cache_reuses_kernel_across_shapes(
 def test_openmp_compilation_cache_reuses_equivalent_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dispatch._clear_compilation_cache()
+    _clear_compilation_cache()
 
     monkeypatch.setattr(
         openmp_compiler,
@@ -125,7 +125,7 @@ def test_openmp_compilation_cache_reuses_equivalent_config(
 def test_openmp_compilation_cache_separates_different_configs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dispatch._clear_compilation_cache()
+    _clear_compilation_cache()
 
     monkeypatch.setattr(
         openmp_compiler,
