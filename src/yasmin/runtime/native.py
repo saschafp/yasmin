@@ -1,4 +1,5 @@
 import ctypes
+import os
 import platform
 import subprocess
 import tempfile
@@ -66,7 +67,7 @@ class SharedLibrary:
 def compile_cpp(
     source: str,
     *,
-    compiler: str = "c++",
+    compiler: str | None = None,
     extra_flags: tuple[str, ...] = (),
 ) -> SharedLibrary:
     directory = tempfile.TemporaryDirectory()
@@ -89,6 +90,8 @@ def compile_cpp(
         raise RuntimeError(f"Unsupported platform: {system}")
 
     source_path.write_text(source)
+
+    compiler = compiler or os.environ.get("CXX") or "c++"
 
     command = [
         compiler,
@@ -234,6 +237,8 @@ class CompiledFunction:
         if unexpected_scalars:
             names = ", ".join(sorted(scalar.name for scalar in unexpected_scalars))
             raise ValueError(f"Unexpected scalar bindings: {names}")
+
+
 @dataclass(frozen=True, slots=True)
 class NativeArtifact:
     function: CompiledFunction
