@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import tempfile
 from pathlib import Path
@@ -72,6 +73,33 @@ def run(
         ]
 
     return results_by_size
+
+
+def run_scaling(
+    *,
+    workload: str,
+    nx: int,
+    thread_counts: list[int],
+    warmups: int,
+    repeats: int,
+    cxx: str,
+    mode: Literal["strong", "weak"] = "strong",
+) -> list[BenchmarkResult]:
+    if not thread_counts or 1 not in thread_counts or any(t < 1 for t in thread_counts):
+        raise ValueError("Thread counts must be positive and include 1")
+    return [
+        _run_implementation(
+            workload=workload,
+            implementation=implementation,
+            nx=round(nx * math.sqrt(threads)) if mode == "weak" else nx,
+            warmups=warmups,
+            repeats=repeats,
+            cxx=cxx,
+            threads=threads,
+        )
+        for threads in sorted(set(thread_counts))
+        for implementation in OPENMP_IMPLEMENTATIONS
+    ]
 
 
 def _run_implementation(
@@ -217,11 +245,15 @@ def main() -> None:
         type=int,
         action="append",
         dest="sizes",
-        help="Grid size to benchmark. Can be supplied multiple times.",
+        help="Grid side length; weak scaling uses this as the one-thread size.",
     )
     parser.add_argument("--warmups", type=int, default=2)
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--threads", type=int)
+    scaling = parser.add_mutually_exclusive_group()
+    scaling.add_argument("--strong-scaling", action="store_true")
+    scaling.add_argument("--weak-scaling", action="store_true")
+    parser.add_argument("--thread-counts", type=int, nargs="+")
     parser.add_argument(
         "--implementation",
         choices=(
@@ -259,6 +291,30 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+    if args.strong_scaling or args.weak_scaling:
+        mode: Literal["strong", "weak"] = "weak" if args.weak_scaling else "strong"
+        if args.sizes and len(args.sizes) != 1:
+            parser.error("Scaling requires exactly one --size")
+        if args.threads is not None or args.implementations or args.include_openmp:
+            parser.error("Scaling selects both OpenMP backends; use --thread-counts")
+        thread_counts = args.thread_counts or [1, 2, 4]
+        if 1 not in thread_counts or any(t < 1 for t in thread_counts):
+            parser.error("Thread counts must be positive and include 1")
+        results = run_scaling(
+            workload=args.workload,
+            nx=(args.sizes or [512 if args.weak_scaling else 2048])[0],
+            thread_counts=thread_counts,
+            warmups=args.warmups,
+            repeats=args.repeats,
+            cxx=args.cxx,
+            mode=mode,
+        )
+        print_csv(results)
+        if not args.no_output:
+            write_csv(args.output_dir / f"{args.workload}_{mode}_scaling.csv", results)
+        return
+    if args.thread_counts is not None:
+        parser.error("--thread-counts requires --strong-scaling or --weak-scaling")
     implementations = _selected_implementations(
         args.implementations,
         include_openmp=args.include_openmp,
