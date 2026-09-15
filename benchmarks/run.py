@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import argparse
-import math
 import os
 import subprocess
 import sys
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 
@@ -68,6 +68,7 @@ def run(
                 workload=workload,
                 implementation=implementation,
                 nx=nx,
+                ny=nx,
                 warmups=warmups,
                 repeats=repeats,
                 cxx=cxx,
@@ -92,14 +93,17 @@ def run_scaling(
 ) -> list[BenchmarkResult]:
     if not thread_counts or 1 not in thread_counts or any(t < 1 for t in thread_counts):
         raise ValueError("Thread counts must be positive and include 1")
+
     implementations = list(OPENMP_IMPLEMENTATIONS)
     if include_gt4py:
         implementations.append("gt4py_cpu")
+
     return [
         _run_implementation(
             workload=workload,
             implementation=implementation,
-            nx=round(nx * math.sqrt(threads)) if mode == "weak" else nx,
+            nx=nx,
+            ny=nx * threads if mode == "weak" else nx,
             warmups=warmups,
             repeats=repeats,
             cxx=cxx,
@@ -115,12 +119,13 @@ def _run_implementation(
     workload: str,
     implementation: Implementation,
     nx: int,
+    ny: int,
     warmups: int,
     repeats: int,
     cxx: str,
     threads: int | None,
 ) -> BenchmarkResult:
-    validate_arguments(nx, warmups, repeats)
+    validate_arguments(nx, ny, warmups, repeats)
     if threads is not None and threads < 1:
         raise ValueError("Expected threads >= 1")
     if implementation in ("cpp", "cpp_openmp"):
@@ -128,6 +133,7 @@ def _run_implementation(
             workload=workload,
             backend="openmp" if implementation == "cpp_openmp" else "cpp",
             nx=nx,
+            ny=ny,
             warmups=warmups,
             repeats=repeats,
             cxx=cxx,
@@ -138,13 +144,14 @@ def _run_implementation(
             workload=workload,
             implementation=implementation,
             nx=nx,
+            ny=ny,
             warmups=warmups,
             repeats=repeats,
             cxx=cxx,
             threads=threads,
         )
 
-    expected = numpy_reference(workload, nx)
+    expected = numpy_reference(workload, nx, ny)
     correct = result.output.size == expected.size and arrays_close(
         result.output.reshape(expected.shape),
         expected,
@@ -152,9 +159,12 @@ def _run_implementation(
     return BenchmarkResult(
         implementation=implementation,
         nx=nx,
-        threads=(threads or 1)
-        if implementation == "gt4py_cpu"
-        else (threads if implementation in OPENMP_IMPLEMENTATIONS else None),
+        ny=ny,
+        threads=(
+            (threads or 1)
+            if implementation == "gt4py_cpu"
+            else (threads if implementation in OPENMP_IMPLEMENTATIONS else None)
+        ),
         runtime_ms=result.runtime_ms,
         correct=correct,
     )
@@ -165,6 +175,7 @@ def run_cpp(
     workload: str,
     backend: Literal["cpp", "openmp"],
     nx: int,
+    ny: int,
     warmups: int,
     repeats: int,
     cxx: str,
@@ -183,7 +194,7 @@ def run_cpp(
             output_path = Path(output_dir) / f"{workload}.bin"
             output = run_key_value_executable(
                 executable.path,
-                [str(nx), str(warmups), str(repeats), str(output_path)],
+                [str(nx), str(ny), str(warmups), str(repeats), str(output_path)],
                 env=env,
             )
             actual = np.fromfile(output_path, dtype=np.float64)
@@ -200,6 +211,7 @@ def run_python(
     workload: str,
     implementation: Implementation,
     nx: int,
+    ny: int,
     warmups: int,
     repeats: int,
     cxx: str,
@@ -223,6 +235,8 @@ def run_python(
                 "gt:cpu_ifirst" if implementation == "gt4py_cpu" else "numpy",
                 "--nx",
                 str(nx),
+                "--ny",
+                str(ny),
                 "--warmups",
                 str(warmups),
                 "--repeats",
@@ -244,17 +258,34 @@ def run_python(
             )
     elif implementation == "numpy":
         module = load_workload(workload, "numpy")
-        result = module.main(nx=nx, warmups=warmups, repeats=repeats)
+        result = module.main(nx=nx, ny=ny, warmups=warmups, repeats=repeats)
     else:
         module = load_workload(workload, "yasmin")
-        result = module.main(
-            backend=implementation.removeprefix("yasmin_"),
-            nx=nx,
-            warmups=warmups,
-            repeats=repeats,
-            cxx=cxx,
-            threads=threads,
+
+        get_affinity = cast(
+            Callable[[int], set[int]] | None,
+            getattr(os, "sched_getaffinity", None),
         )
+        set_affinity = cast(
+            Callable[[int, set[int]], None] | None,
+            getattr(os, "sched_setaffinity", None),
+        )
+
+        original_affinity = get_affinity(0) if get_affinity is not None else None
+
+        try:
+            result = module.main(
+                backend=implementation.removeprefix("yasmin_"),
+                nx=nx,
+                ny=ny,
+                warmups=warmups,
+                repeats=repeats,
+                cxx=cxx,
+                threads=threads,
+            )
+        finally:
+            if original_affinity is not None and set_affinity is not None:
+                set_affinity(0, original_affinity)
     return result
 
 

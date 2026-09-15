@@ -55,6 +55,7 @@ def laplacian() -> LaplacianWorkload:
 def main(
     *,
     nx: int,
+    ny: int,
     warmups: int,
     repeats: int,
     backend: Literal["numpy", "cpp", "openmp"] = "numpy",
@@ -62,18 +63,30 @@ def main(
     threads: int | None = None,
     output: Path | None = None,
 ) -> WorkloadResult:
-    validate_arguments(nx, warmups, repeats)
+    validate_arguments(nx, ny, warmups, repeats)
+
     if threads is not None and threads < 1:
         raise ValueError("Expected threads >= 1")
+
     workload = laplacian()
-    u = make_initial(nx)
+
+    u = make_initial(nx, ny)
     out = np.zeros_like(u)
-    fields = {workload.u: u, workload.out: out}
+
+    fields = {
+        workload.u: u,
+        workload.out: out,
+    }
 
     if backend == "numpy":
 
         def execute_once() -> None:
-            yasi.execute(workload.operator, backend="numpy", fields=fields)
+            yasi.execute(
+                workload.operator,
+                backend="numpy",
+                fields=fields,
+            )
+
     else:
 
         def compile_kernel() -> yasi.Kernel:
@@ -91,11 +104,15 @@ def main(
                         ),
                     ),
                 )
-            else:
-                return yasi.compile(workload.operator, backend="cpp")
+
+            return yasi.compile(
+                workload.operator,
+                backend="cpp",
+            )
 
         previous_cxx = os.environ.get("CXX")
         os.environ["CXX"] = cxx
+
         try:
             kernel = compile_kernel()
         finally:
@@ -107,10 +124,19 @@ def main(
         def execute_once() -> None:
             kernel(fields=fields)
 
-    runtime_ms = median_runtime_ms(execute_once, warmups=warmups, repeats=repeats)
+    runtime_ms = median_runtime_ms(
+        execute_once,
+        warmups=warmups,
+        repeats=repeats,
+    )
+
     if output is not None:
         out.tofile(output)
-    return WorkloadResult(output=out, runtime_ms=runtime_ms)
+
+    return WorkloadResult(
+        output=out,
+        runtime_ms=runtime_ms,
+    )
 
 
 if __name__ == "__main__":
@@ -122,4 +148,4 @@ if __name__ == "__main__":
     parser.add_argument("--threads", type=int)
     args = parser.parse_args()
     result = main(**vars(args))
-    print(f"NX={args.nx}\nRUNTIME_MS={result.runtime_ms:.12f}")
+    print(f"NX={args.nx}\nNY={args.ny}\nRUNTIME_MS={result.runtime_ms:.12f}")

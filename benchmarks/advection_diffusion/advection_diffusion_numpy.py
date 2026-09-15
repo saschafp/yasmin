@@ -21,16 +21,21 @@ def solution(t: float, x: Array, y: Array) -> Array:
     return np.stack((0.75 - delta, 0.75 + delta))
 
 
-def make_initial(nx: int) -> Array:
-    if nx < 7:
-        raise ValueError("Advection-diffusion requires nx >= 7")
-    x = np.linspace(0.0, 1.0, nx)
-    return solution(0.0, x[:, None], x[None, :])
+def make_initial(nx: int, ny: int) -> Array:
+    if nx < 7 or ny < 7:
+        raise ValueError("Advection-diffusion requires nx >= 7 and ny >= 7")
+
+    dx = 1.0 / (nx - 1)
+    x = np.arange(nx, dtype=np.float64) * dx
+    y = np.arange(ny, dtype=np.float64) * dx
+
+    return solution(0.0, x[:, None], y[None, :])
 
 
 def advection_diffusion(state: Array, out: Array) -> None:
     # The fixed initial velocities are positive, so abs(u) = u and abs(v) = v.
     dx = 1.0 / (state.shape[1] - 1)
+    dy = dx
     dt = dx * dx
     u, v = state[:, 3:-3, 3:-3]
     for field, target in zip(state, out, strict=True):
@@ -46,13 +51,13 @@ def advection_diffusion(state: Array, out: Array) -> None:
         ) - u / (60.0 * dx) * (
             xp3 + xm3 - 6.0 * (xp2 + xm2) + 15.0 * (xp1 + xm1) - 20.0 * c
         )
-        adv_y = v / (60.0 * dx) * (
+        adv_y = v / (60.0 * dy) * (
             45.0 * (yp1 - ym1) - 9.0 * (yp2 - ym2) + (yp3 - ym3)
-        ) - v / (60.0 * dx) * (
+        ) - v / (60.0 * dy) * (
             yp3 + ym3 - 6.0 * (yp2 + ym2) + 15.0 * (yp1 + ym1) - 20.0 * c
         )
         diff_x = (-xm2 + 16.0 * xm1 - 30.0 * c + 16.0 * xp1 - xp2) / (12.0 * dx * dx)
-        diff_y = (-ym2 + 16.0 * ym1 - 30.0 * c + 16.0 * yp1 - yp2) / (12.0 * dx * dx)
+        diff_y = (-ym2 + 16.0 * ym1 - 30.0 * c + 16.0 * yp1 - yp2) / (12.0 * dy * dy)
         target[3:-3, 3:-3] = c + dt * (-(adv_x + adv_y) + MU * (diff_x + diff_y))
 
 
@@ -63,10 +68,10 @@ def reference(initial: Array) -> Array:
 
 
 def main(
-    *, nx: int, warmups: int, repeats: int, output: Path | None = None
+    *, nx: int, ny: int, warmups: int, repeats: int, output: Path | None = None
 ) -> WorkloadResult:
-    validate_arguments(nx, warmups, repeats)
-    initial = make_initial(nx)
+    validate_arguments(nx, ny, warmups, repeats)
+    initial = make_initial(nx, ny)
     out = initial.copy()
     runtime_ms = median_runtime_ms(
         lambda: advection_diffusion(initial, out),
@@ -83,4 +88,4 @@ if __name__ == "__main__":
     parser.set_defaults(output=Path("advection_diffusion.bin"))
     args = parser.parse_args()
     result = main(**vars(args))
-    print(f"NX={args.nx}\nRUNTIME_MS={result.runtime_ms:.12f}")
+    print(f"NX={args.nx}\nNY={args.ny}\nRUNTIME_MS={result.runtime_ms:.12f}")

@@ -136,8 +136,13 @@ def make_rk_stage(backend: str) -> Any:
         with computation(PARALLEL), interval(...):
             adv_u, adv_v = advection(dx=dx, dy=dy, u=in_u_tmp, v=in_v_tmp)
             diff_u, diff_v = diffusion(dx=dx, dy=dy, u=in_u_tmp, v=in_v_tmp)
-            out_u = in_u_now[0, 0, 0] + dt * (-adv_u[0, 0, 0] + mu * diff_u[0, 0, 0])  # noqa: F841
-            out_v = in_v_now[0, 0, 0] + dt * (-adv_v[0, 0, 0] + mu * diff_v[0, 0, 0])  # noqa: F841
+            out_u = in_u_now[0, 0, 0] + dt * (  # noqa: F841
+                -adv_u[0, 0, 0] + mu * diff_u[0, 0, 0]
+            )
+
+            out_v = in_v_now[0, 0, 0] + dt * (  # noqa: F841
+                -adv_v[0, 0, 0] + mu * diff_v[0, 0, 0]
+            )
 
     return rk_stage
 
@@ -145,29 +150,30 @@ def make_rk_stage(backend: str) -> Any:
 def main(
     *,
     nx: int,
+    ny: int,
     warmups: int,
     repeats: int,
     output: Path | None = None,
     backend: Literal["gt:cpu_ifirst", "numpy"] = "gt:cpu_ifirst",
 ) -> WorkloadResult:
-    validate_arguments(nx, warmups, repeats)
-    initial = make_initial(nx)
+    validate_arguments(nx, ny, warmups, repeats)
+    initial = make_initial(nx, ny)
     rk_stage = make_rk_stage(backend)
     dx = 1.0 / (nx - 1)
-    dy = 1.0 / (nx - 1)
-    timestep = 1.0 / (nx - 1) ** 2
+    dy = dx
+    timestep = dx**2
 
     u_now = gt4py.storage.zeros(
-        (nx, nx, 1), dtype, backend=backend, aligned_index=origin
+        (nx, ny, 1), dtype, backend=backend, aligned_index=origin
     )
     v_now = gt4py.storage.zeros(
-        (nx, nx, 1), dtype, backend=backend, aligned_index=origin
+        (nx, ny, 1), dtype, backend=backend, aligned_index=origin
     )
     u_new = gt4py.storage.zeros(
-        (nx, nx, 1), dtype, backend=backend, aligned_index=origin
+        (nx, ny, 1), dtype, backend=backend, aligned_index=origin
     )
     v_new = gt4py.storage.zeros(
-        (nx, nx, 1), dtype, backend=backend, aligned_index=origin
+        (nx, ny, 1), dtype, backend=backend, aligned_index=origin
     )
     u_now[:, :, 0] = initial[0]
     v_now[:, :, 0] = initial[1]
@@ -188,7 +194,7 @@ def main(
             dy=dy,
             mu=0.1,
             origin=origin,
-            domain=(nx - 6, nx - 6, 1),
+            domain=(nx - 6, ny - 6, 1),
         )
 
     # Finish any first-call initialization before warmups and timed samples.
@@ -208,4 +214,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     result = main(**vars(args))
-    print(f"NX={args.nx}\nRUNTIME_MS={result.runtime_ms:.12f}")
+    print(f"NX={args.nx}\nNY={args.ny}\nRUNTIME_MS={result.runtime_ms:.12f}")

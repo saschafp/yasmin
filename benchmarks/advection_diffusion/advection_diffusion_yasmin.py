@@ -5,9 +5,7 @@ from pathlib import Path
 from typing import Literal
 
 import yasmin as yasi
-from benchmarks.advection_diffusion.advection_diffusion_numpy import (
-    make_initial,
-)
+from benchmarks.advection_diffusion.advection_diffusion_numpy import make_initial
 from benchmarks.common import (
     WorkloadResult,
     median_runtime_ms,
@@ -43,6 +41,7 @@ def advection_diffusion(
             + 15.0 * (f[1, 0] + f[-1, 0])
             - 20.0 * f[0, 0]
         )
+
         adv_y = v[0, 0] / (60.0 * dx) * (
             45.0 * (f[0, 1] - f[0, -1])
             - 9.0 * (f[0, 2] - f[0, -2])
@@ -54,12 +53,15 @@ def advection_diffusion(
             + 15.0 * (f[0, 1] + f[0, -1])
             - 20.0 * f[0, 0]
         )
+
         diff_x = (
             0.0 - f[-2, 0] + 16.0 * f[-1, 0] - 30.0 * f[0, 0] + 16.0 * f[1, 0] - f[2, 0]
         ) / (12.0 * dx * dx)
+
         diff_y = (
             0.0 - f[0, -2] + 16.0 * f[0, -1] - 30.0 * f[0, 0] + 16.0 * f[0, 1] - f[0, 2]
         ) / (12.0 * dx * dx)
+
         return f[0, 0] + dt * (0.0 - (adv_x + adv_y) + 0.1 * (diff_x + diff_y))
 
     @yasi.operator
@@ -78,6 +80,7 @@ def advection_diffusion(
 def main(
     *,
     nx: int,
+    ny: int,
     warmups: int,
     repeats: int,
     backend: Literal["numpy", "cpp", "openmp"] = "numpy",
@@ -85,17 +88,23 @@ def main(
     threads: int | None = None,
     output: Path | None = None,
 ) -> WorkloadResult:
-    validate_arguments(nx, warmups, repeats)
+    validate_arguments(nx, ny, warmups, repeats)
+
     if threads is not None and threads < 1:
         raise ValueError("Expected threads >= 1")
-    initial = make_initial(nx)
+
+    initial = make_initial(nx, ny)
     out = initial.copy()
+
     operator, fields, dt_scalar = advection_diffusion(nx)
     u, v, out_u, out_v = fields
+
     kernel = None
+
     if backend != "numpy":
         previous_cxx = os.environ.get("CXX")
         os.environ["CXX"] = cxx
+
         try:
             if backend == "openmp":
                 kernel = yasi.compile(
@@ -120,7 +129,11 @@ def main(
                 os.environ["CXX"] = previous_cxx
 
     dx = 1.0 / (nx - 1)
-    scalars = {dt_scalar: dx * dx}
+
+    scalars = {
+        dt_scalar: dx * dx,
+    }
+
     bindings = {
         u: initial[0],
         v: initial[1],
@@ -130,24 +143,45 @@ def main(
 
     def execute_once() -> None:
         if kernel is None:
-            yasi.execute(operator, backend="numpy", fields=bindings, scalars=scalars)
+            yasi.execute(
+                operator,
+                backend="numpy",
+                fields=bindings,
+                scalars=scalars,
+            )
         else:
-            kernel(fields=bindings, scalars=scalars)
+            kernel(
+                fields=bindings,
+                scalars=scalars,
+            )
 
-    runtime_ms = median_runtime_ms(execute_once, warmups=warmups, repeats=repeats)
+    runtime_ms = median_runtime_ms(
+        execute_once,
+        warmups=warmups,
+        repeats=repeats,
+    )
+
     if output is not None:
         out.tofile(output)
-    return WorkloadResult(output=out, runtime_ms=runtime_ms)
+
+    return WorkloadResult(
+        output=out,
+        runtime_ms=runtime_ms,
+    )
 
 
 if __name__ == "__main__":
     parser = workload_parser()
     parser.set_defaults(output=Path("advection_diffusion.bin"))
     parser.add_argument(
-        "--backend", choices=("numpy", "cpp", "openmp"), default="numpy"
+        "--backend",
+        choices=("numpy", "cpp", "openmp"),
+        default="numpy",
     )
     parser.add_argument("--cxx", default=os.environ.get("CXX") or "c++")
     parser.add_argument("--threads", type=int)
+
     args = parser.parse_args()
     result = main(**vars(args))
-    print(f"NX={args.nx}\nRUNTIME_MS={result.runtime_ms:.12f}")
+
+    print(f"NX={args.nx}\nNY={args.ny}\nRUNTIME_MS={result.runtime_ms:.12f}")

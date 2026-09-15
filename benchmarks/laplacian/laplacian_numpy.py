@@ -14,10 +14,17 @@ from benchmarks.common import (
 )
 
 
-def make_initial(nx: int) -> npt.NDArray[np.float64]:
+def make_initial(
+    nx: int,
+    ny: int,
+) -> npt.NDArray[np.float64]:
     x = np.arange(nx, dtype=np.float64)
-    values = np.sin(2.0 * math.pi * x / (nx - 1))
-    return np.outer(values, values).astype(np.float64)
+    y = np.arange(ny, dtype=np.float64)
+
+    values_x = np.sin(2.0 * math.pi * x / (nx - 1))
+    values_y = np.sin(2.0 * math.pi * y / (ny - 1))
+
+    return np.outer(values_x, values_y).astype(np.float64)
 
 
 def reference(
@@ -38,19 +45,31 @@ def laplacian(
 
 
 def main(
-    *, nx: int, warmups: int, repeats: int, output: Path | None = None
+    *,
+    nx: int,
+    ny: int,
+    warmups: int,
+    repeats: int,
+    output: Path | None = None,
 ) -> WorkloadResult:
-    validate_arguments(nx, warmups, repeats)
-    u = make_initial(nx)
+    validate_arguments(nx, ny, warmups, repeats)
+
+    u = make_initial(nx, ny)
     out = np.zeros_like(u)
+
     runtime_ms = median_runtime_ms(
         lambda: laplacian(u, out),
         warmups=warmups,
         repeats=repeats,
     )
+
     if output is not None:
         out.tofile(output)
-    return WorkloadResult(output=out, runtime_ms=runtime_ms)
+
+    return WorkloadResult(
+        output=out,
+        runtime_ms=runtime_ms,
+    )
 
 
 if __name__ == "__main__":

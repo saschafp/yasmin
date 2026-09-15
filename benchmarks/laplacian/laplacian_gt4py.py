@@ -31,30 +31,62 @@ def laplacian(u: FloatField, out: FloatField) -> None:
 def main(
     *,
     nx: int,
+    ny: int,
     warmups: int,
     repeats: int,
     output: Path | None = None,
     backend: Literal["gt:cpu_ifirst", "numpy"] = "gt:cpu_ifirst",
 ) -> WorkloadResult:
-    validate_arguments(nx, warmups, repeats)
+    validate_arguments(nx, ny, warmups, repeats)
+
     origin = (1, 1, 0)
-    initial = make_initial(nx)
+    initial = make_initial(nx, ny)
+
     u = storage.from_array(
-        initial[:, :, None], np.float64, backend=backend, aligned_index=origin
+        initial[:, :, None],
+        np.float64,
+        backend=backend,
+        aligned_index=origin,
     )
-    out = storage.zeros((nx, nx, 1), np.float64, backend=backend, aligned_index=origin)
-    kernel = gtscript.stencil(backend=backend, definition=laplacian)
+
+    out = storage.zeros(
+        (nx, ny, 1),
+        np.float64,
+        backend=backend,
+        aligned_index=origin,
+    )
+
+    kernel = gtscript.stencil(
+        backend=backend,
+        definition=laplacian,
+    )
 
     def execute_once() -> None:
-        if nx > 2:
-            kernel(u=u, out=out, origin=origin, domain=(nx - 2, nx - 2, 1))
+        if nx > 2 and ny > 2:
+            kernel(
+                u=u,
+                out=out,
+                origin=origin,
+                domain=(nx - 2, ny - 2, 1),
+            )
 
     execute_once()
-    runtime_ms = median_runtime_ms(execute_once, warmups=warmups, repeats=repeats)
+
+    runtime_ms = median_runtime_ms(
+        execute_once,
+        warmups=warmups,
+        repeats=repeats,
+    )
+
     result = np.array(out[:, :, 0], copy=True)
+
     if output is not None:
         result.tofile(output)
-    return WorkloadResult(output=result, runtime_ms=runtime_ms)
+
+    return WorkloadResult(
+        output=result,
+        runtime_ms=runtime_ms,
+    )
 
 
 if __name__ == "__main__":
@@ -64,4 +96,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     result = main(**vars(args))
-    print(f"NX={args.nx}\nRUNTIME_MS={result.runtime_ms:.12f}")
+    print(f"NX={args.nx}\nNY={args.ny}\nRUNTIME_MS={result.runtime_ms:.12f}")

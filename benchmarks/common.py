@@ -35,9 +35,13 @@ def load_workload(workload: str, implementation: str) -> ModuleType:
     return importlib.import_module(f"benchmarks.{workload}.{workload}_{implementation}")
 
 
-def numpy_reference(workload: str, nx: int) -> Array:
+def numpy_reference(
+    workload: str,
+    nx: int,
+    ny: int,
+) -> Array:
     module = load_workload(workload, "numpy")
-    expected: Array = module.reference(module.make_initial(nx))
+    expected: Array = module.reference(module.make_initial(nx, ny))
     return expected
 
 
@@ -50,21 +54,28 @@ class WorkloadResult:
 def workload_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument("--nx", type=int, default=128)
+    parser.add_argument("--ny", type=int, default=128)
     parser.add_argument("--warmups", type=int, default=2)
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--output", type=Path, default=Path("laplacian.bin"))
     return parser
 
 
-def validate_arguments(nx: int, warmups: int, repeats: int) -> None:
-    if nx < 2 or warmups < 0 or repeats < 1:
-        raise ValueError("Expected nx >= 2, warmups >= 0, repeats >= 1")
+def validate_arguments(
+    nx: int,
+    ny: int,
+    warmups: int,
+    repeats: int,
+) -> None:
+    if nx < 2 or ny < 2 or warmups < 0 or repeats < 1:
+        raise ValueError("Expected nx >= 2, ny >= 2, warmups >= 0, repeats >= 1")
 
 
 @dataclass(frozen=True, slots=True)
 class BenchmarkResult:
     implementation: str
     nx: int
+    ny: int
     threads: int | None
     runtime_ms: float
     correct: bool
@@ -73,6 +84,7 @@ class BenchmarkResult:
         return {
             "implementation": self.implementation,
             "nx": str(self.nx),
+            "ny": str(self.ny),
             "threads": "" if self.threads is None else str(self.threads),
             "runtime_ms": f"{self.runtime_ms:.6f}",
             "correct": str(self.correct).lower(),
@@ -189,6 +201,7 @@ def print_csv(results: Sequence[BenchmarkResult]) -> None:
         fieldnames=[
             "implementation",
             "nx",
+            "ny",
             "threads",
             "runtime_ms",
             "correct",
@@ -207,6 +220,7 @@ def write_csv(path: Path, results: Sequence[BenchmarkResult]) -> None:
             fieldnames=[
                 "implementation",
                 "nx",
+                "ny",
                 "threads",
                 "runtime_ms",
                 "correct",
