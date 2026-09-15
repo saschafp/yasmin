@@ -1,7 +1,7 @@
 from yasmin.backends.cpp import CppBackend
 from yasmin.compiler.openmp import OpenMPConfig
 from yasmin.ir import loop
-from yasmin.runtime.native import CompiledFunction, compile_cpp
+from yasmin.runtime.native import CompiledFunction, NativeArtifact, compile_cpp
 
 
 class OpenMPBackend(CppBackend):
@@ -11,12 +11,26 @@ class OpenMPBackend(CppBackend):
         super().__init__(options=config.cpp)
         self.config = config
 
-    def compile(self, function: loop.Function) -> CompiledFunction:
+    def compile(
+        self,
+        function: loop.Function,
+    ) -> NativeArtifact:
+        source = self.source(function)
+
         shared_library = compile_cpp(
-            self.source(function),
+            source,
             extra_flags=("-fopenmp", *self.config.extra_compile_flags),
         )
-        return CompiledFunction(function=function, shared_library=shared_library)
+
+        compiled_function = CompiledFunction(
+            function=function,
+            shared_library=shared_library,
+        )
+
+        return NativeArtifact(
+            function=compiled_function,
+            source=source,
+        )
 
     def _emit_loop_prefix(
         self,

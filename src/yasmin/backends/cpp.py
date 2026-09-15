@@ -1,7 +1,7 @@
 from yasmin.compiler.config import CppOptions
 from yasmin.core import DType, Field, float32, float64, int32, int64
 from yasmin.ir import loop
-from yasmin.runtime.native import CompiledFunction, compile_cpp
+from yasmin.runtime.native import CompiledFunction, NativeArtifact, compile_cpp
 
 
 class CppBackend:
@@ -35,10 +35,20 @@ class CppBackend:
     def compile(
         self,
         function: loop.Function,
-    ) -> CompiledFunction:
-        shared_library = compile_cpp(self.source(function))
+    ) -> NativeArtifact:
+        source = self.source(function)
 
-        return CompiledFunction(function=function, shared_library=shared_library)
+        shared_library = compile_cpp(source)
+
+        compiled_function = CompiledFunction(
+            function=function,
+            shared_library=shared_library,
+        )
+
+        return NativeArtifact(
+            function=compiled_function,
+            source=source,
+        )
 
     def _emit_loop_prefix(
         self,

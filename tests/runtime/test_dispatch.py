@@ -8,6 +8,7 @@ import yasmin.compiler.openmp as openmp_compiler
 from yasmin.backends.cpp import CppBackend
 from yasmin.backends.openmp import OpenMPBackend
 from yasmin.compiler.compile import _clear_compilation_cache
+from yasmin.runtime.native import NativeArtifact
 
 
 def test_cpp_compilation_cache_reuses_kernel_across_shapes(
@@ -27,7 +28,13 @@ def test_cpp_compilation_cache_reuses_kernel_across_shapes(
     operator = copy(u, out)
 
     compiled = MagicMock()
-    compile_mock = MagicMock(return_value=compiled)
+
+    artifact = NativeArtifact(
+        function=compiled,
+        source="// generated source",
+    )
+
+    compile_mock = MagicMock(return_value=artifact)
 
     monkeypatch.setattr(
         CppBackend,
@@ -86,7 +93,13 @@ def test_openmp_compilation_cache_reuses_equivalent_config(
     operator = copy(u, out)
 
     compiled = MagicMock()
-    compile_mock = MagicMock(return_value=compiled)
+
+    artifact = NativeArtifact(
+        function=compiled,
+        source="// generated source",
+    )
+
+    compile_mock = MagicMock(return_value=artifact)
 
     monkeypatch.setattr(
         OpenMPBackend,
@@ -145,7 +158,13 @@ def test_openmp_compilation_cache_separates_different_configs(
     operator = copy(u, out)
 
     compiled = MagicMock()
-    compile_mock = MagicMock(return_value=compiled)
+
+    artifact = NativeArtifact(
+        function=compiled,
+        source="// generated source",
+    )
+
+    compile_mock = MagicMock(return_value=artifact)
 
     monkeypatch.setattr(
         OpenMPBackend,

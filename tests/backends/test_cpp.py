@@ -125,13 +125,13 @@ def test_execute_compiled_cpp_stencil() -> None:
     u_data = np.arange(16, dtype=np.float64)
     out_data = np.zeros_like(u_data)
 
-    compiled = CppBackend().compile(function)
+    artifact = CppBackend().compile(function)
 
-    compiled(
+    artifact.function(
         fields={
             out: out_data,
             u: u_data,
-        }
+        },
     )
 
     expected = np.zeros_like(u_data)

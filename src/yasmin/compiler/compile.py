@@ -14,7 +14,7 @@ from yasmin.compiler.openmp import OpenMPConfig, resolve_openmp_config
 from yasmin.frontend import Operator
 from yasmin.ir import loop
 from yasmin.lowering import lower
-from yasmin.runtime.native import CompiledFunction
+from yasmin.runtime.native import NativeArtifact
 
 CppCacheKey = tuple[
     Literal["cpp"],
@@ -32,7 +32,7 @@ CompilationCacheKey = CppCacheKey | OpenMPCacheKey
 
 _compilation_cache: dict[
     CompilationCacheKey,
-    CompiledFunction,
+    NativeArtifact,
 ] = {}
 
 
@@ -64,7 +64,7 @@ def _compile_function(
     *,
     config: CompileConfig,
     shapes: FieldShapes | None = None,
-) -> CompiledFunction:
+) -> NativeArtifact:
     if config.backend == "cpp":
         options = _cpp_options(config.options)
 
@@ -78,7 +78,7 @@ def _compile_function(
         if cached is not None:
             return cached
 
-        compiled = CppBackend(
+        artifact = CppBackend(
             options=options,
         ).compile(function)
 
@@ -101,15 +101,15 @@ def _compile_function(
         if cached is not None:
             return cached
 
-        compiled = OpenMPBackend(
+        artifact = OpenMPBackend(
             config=openmp_config,
         ).compile(function)
 
     else:
         raise ValueError(f"Unknown backend: {config.backend!r}")
 
-    _compilation_cache[key] = compiled
-    return compiled
+    _compilation_cache[key] = artifact
+    return artifact
 
 
 def _clear_compilation_cache() -> None:
@@ -151,11 +151,12 @@ def compile(
         name="kernel",
     )
 
-    compiled = _compile_function(
+    artifact = _compile_function(
         function,
         config=compile_config,
     )
 
     return Kernel(
-        _compiled=compiled,
+        _compiled=artifact.function,
+        source=artifact.source,
     )

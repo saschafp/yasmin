@@ -7,6 +7,7 @@ import yasmin as yasi
 from yasmin.backends.cpp import CppBackend
 from yasmin.backends.openmp import OpenMPBackend
 from yasmin.compiler.compile import _clear_compilation_cache
+from yasmin.runtime.native import NativeArtifact
 
 
 def test_compile_cpp_returns_executable_kernel(
@@ -26,7 +27,13 @@ def test_compile_cpp_returns_executable_kernel(
     operator = copy(u, out)
 
     compiled = MagicMock()
-    compile_mock = MagicMock(return_value=compiled)
+
+    artifact = NativeArtifact(
+        function=compiled,
+        source="// generated source",
+    )
+
+    compile_mock = MagicMock(return_value=artifact)
 
     monkeypatch.setattr(
         CppBackend,
@@ -40,6 +47,7 @@ def test_compile_cpp_returns_executable_kernel(
     )
 
     assert isinstance(kernel, yasi.Kernel)
+    assert kernel.source == "// generated source"
     assert compile_mock.call_count == 1
 
     u_data = np.ones(16, dtype=np.float64)
@@ -80,7 +88,13 @@ def test_compile_openmp_does_not_require_shapes(
     operator = copy(u, out)
 
     compiled = MagicMock()
-    compile_mock = MagicMock(return_value=compiled)
+
+    artifact = NativeArtifact(
+        function=compiled,
+        source="// generated source",
+    )
+
+    compile_mock = MagicMock(return_value=artifact)
 
     monkeypatch.setattr(
         OpenMPBackend,
@@ -94,6 +108,7 @@ def test_compile_openmp_does_not_require_shapes(
     )
 
     assert isinstance(kernel, yasi.Kernel)
+    assert kernel.source == "// generated source"
     assert compile_mock.call_count == 1
 
 
@@ -206,7 +221,13 @@ def test_compile_and_execute_share_cpp_cache(
     operator = copy(u, out)
 
     compiled = MagicMock()
-    compile_mock = MagicMock(return_value=compiled)
+
+    artifact = NativeArtifact(
+        function=compiled,
+        source="// generated source",
+    )
+
+    compile_mock = MagicMock(return_value=artifact)
 
     monkeypatch.setattr(
         CppBackend,

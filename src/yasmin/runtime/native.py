@@ -234,3 +234,7 @@ class CompiledFunction:
         if unexpected_scalars:
             names = ", ".join(sorted(scalar.name for scalar in unexpected_scalars))
             raise ValueError(f"Unexpected scalar bindings: {names}")
+@dataclass(frozen=True, slots=True)
+class NativeArtifact:
+    function: CompiledFunction
+    source: str

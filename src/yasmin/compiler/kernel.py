@@ -13,6 +13,7 @@ Array = npt.NDArray[Any]
 @dataclass(frozen=True, slots=True)
 class Kernel:
     _compiled: CompiledFunction
+    source: str
 
     def __call__(
         self,

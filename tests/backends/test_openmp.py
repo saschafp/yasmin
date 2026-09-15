@@ -183,15 +183,15 @@ def test_execute_compiled_openmp_stencil() -> None:
         options=OpenMPOptions(),
     )
 
-    compiled = OpenMPBackend(
+    artifact = OpenMPBackend(
         config=config,
     ).compile(function)
 
-    compiled(
+    artifact.function(
         fields={
             out: out_data,
             u: u_data,
-        }
+        },
     )
 
     expected = np.zeros_like(u_data)
