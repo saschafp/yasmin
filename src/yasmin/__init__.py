@@ -1,3 +1,6 @@
+from yasmin.compiler.compile import compile
+from yasmin.compiler.config import CompileConfig, CppOptions, OpenMPOptions
+from yasmin.compiler.kernel import Kernel
 from yasmin.core import DType, float32, float64, int32, int64
 from yasmin.frontend import (
     Dimension,
@@ -13,6 +16,11 @@ from yasmin.frontend import (
 from yasmin.runtime.dispatch import execute
 
 __all__ = [
+    "CompileConfig",
+    "CppOptions",
+    "OpenMPOptions",
+    "Kernel",
+    "compile",
     "Dimension",
     "DType",
     "float32",

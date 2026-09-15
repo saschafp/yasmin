@@ -3,7 +3,9 @@ from typing import Any
 
 import numpy.typing as npt
 
-from yasmin.backends import CppBackend, NumPyBackend, OpenMPBackend
+from yasmin.backends import NumPyBackend
+from yasmin.compiler.compile import _compile_function
+from yasmin.compiler.config import CompileConfig
 from yasmin.frontend import Field, Operator, Scalar
 from yasmin.lowering import lower
 
@@ -30,19 +32,31 @@ def execute(
         )
         return
 
-    function = lower(operator=operator_ir, name="kernel")
-    shapes = {field: array.shape for field, array in field_bindings.items()}
-
     if backend == "cpp":
-        print(CppBackend().source(function, shapes=shapes))  # TODO Saskia: Remove
-        compiled_function = CppBackend().compile(function, shapes=shapes)
+        config = CompileConfig(
+            backend="cpp",
+        )
     elif backend == "openmp":
-        print(OpenMPBackend().source(function, shapes=shapes))  # TODO Saskia: Remove
-        compiled_function = OpenMPBackend().compile(function, shapes=shapes)
+        config = CompileConfig(
+            backend="openmp",
+        )
     else:
         raise ValueError(f"Unknown backend: {backend!r}")
 
-    compiled_function(
+    function = lower(
+        operator=operator_ir,
+        name="kernel",
+    )
+
+    shapes = {field: array.shape for field, array in field_bindings.items()}
+
+    compiled = _compile_function(
+        function,
+        config=config,
+        shapes=shapes,
+    )
+
+    compiled(
         fields=field_bindings,
         scalars=scalar_bindings,
     )
