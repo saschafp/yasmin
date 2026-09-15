@@ -187,3 +187,49 @@ def test_compile_rejects_cpp_options_for_openmp() -> None:
             operator,
             config=config,
         )
+
+
+def test_compile_and_execute_share_cpp_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_compilation_cache()
+
+    x = yasi.Dimension("x")
+
+    u = yasi.Field("u", dims=(x,), dtype=yasi.float64)
+    out = yasi.Field("out", dims=(x,), dtype=yasi.float64)
+
+    @yasi.operator
+    def copy(u: yasi.Field, out: yasi.Field) -> None:
+        out[0] = u[0]
+
+    operator = copy(u, out)
+
+    compiled = MagicMock()
+    compile_mock = MagicMock(return_value=compiled)
+
+    monkeypatch.setattr(
+        CppBackend,
+        "compile",
+        compile_mock,
+    )
+
+    yasi.compile(
+        operator,
+        backend="cpp",
+    )
+
+    u_data = np.ones(32, dtype=np.float64)
+    out_data = np.zeros_like(u_data)
+
+    yasi.execute(
+        operator,
+        backend="cpp",
+        fields={
+            u: u_data,
+            out: out_data,
+        },
+    )
+
+    assert compile_mock.call_count == 1
+    assert compiled.call_count == 1
