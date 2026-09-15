@@ -1,6 +1,6 @@
 from yasmin.frontend.decorators import operator, stencil
 from yasmin.frontend.dimension import Dimension
-from yasmin.frontend.expr import Expr
+from yasmin.frontend.expr import Expr, SymbolicExpr
 from yasmin.frontend.field import Field
 from yasmin.frontend.operator import Operator
 from yasmin.frontend.printer import print_loop_ir, print_stencil_ir
@@ -15,6 +15,7 @@ __all__ = [
     "Operator",
     "operator",
     "Scalar",
+    "SymbolicExpr",
     "stencil",
     "print_loop_ir",
     "print_stencil_ir",
