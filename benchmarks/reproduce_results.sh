@@ -18,6 +18,8 @@ echo "Compiler: $(g++ --version | head -n 1)"
 echo "OMP_DYNAMIC=$OMP_DYNAMIC"
 echo "OMP_PROC_BIND=$OMP_PROC_BIND"
 echo "OMP_PLACES=$OMP_PLACES"
+echo "Runtime OpenMP threads: 8"
+echo "GT4Py CPU runtime threads: 1 and 8"
 echo
 
 echo "=== Runtime size sweeps ==="
@@ -33,6 +35,8 @@ for workload in laplacian advection_diffusion; do
     --size 8191 \
     --include-openmp \
     --include-gt4py \
+    --threads 8 \
+    --gt4py-cpu-thread-counts 1 8 \
     --warmups 3 \
     --repeats 15 \
     --cxx g++ \
@@ -72,21 +76,19 @@ done
 echo
 echo "=== Generate plots ==="
 
-for workload in laplacian advection_diffusion; do
-  python -m benchmarks.plot_runtime "$workload" \
-    --data-dir "$out" \
-    --output-dir "$out/plots"
+python -m benchmarks.plot_runtime \
+  --data-dir "$out" \
+  --output-dir "$out/plots"
 
-  python -m benchmarks.plot_scaling "$workload" \
-    --mode strong \
-    --data-dir "$out" \
-    --output-dir "$out/plots"
+python -m benchmarks.plot_scaling \
+  --mode strong \
+  --data-dir "$out" \
+  --output-dir "$out/plots"
 
-  python -m benchmarks.plot_scaling "$workload" \
-    --mode weak \
-    --data-dir "$out" \
-    --output-dir "$out/plots"
-done
+python -m benchmarks.plot_scaling \
+  --mode weak \
+  --data-dir "$out" \
+  --output-dir "$out/plots"
 
 echo
 echo "Done."

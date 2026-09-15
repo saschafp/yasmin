@@ -59,23 +59,35 @@ def run(
     repeats: int,
     cxx: str,
     threads: int | None,
+    gt4py_cpu_thread_counts: list[int] | None = None,
 ) -> dict[int, list[BenchmarkResult]]:
     results_by_size: dict[int, list[BenchmarkResult]] = {}
 
     for nx in sizes:
-        results_by_size[nx] = [
-            _run_implementation(
-                workload=workload,
-                implementation=implementation,
-                nx=nx,
-                ny=nx,
-                warmups=warmups,
-                repeats=repeats,
-                cxx=cxx,
-                threads=threads,
+        results: list[BenchmarkResult] = []
+
+        for implementation in implementations:
+            implementation_thread_counts = (
+                sorted(set(gt4py_cpu_thread_counts))
+                if implementation == "gt4py_cpu" and gt4py_cpu_thread_counts is not None
+                else [threads]
             )
-            for implementation in implementations
-        ]
+
+            for implementation_threads in implementation_thread_counts:
+                results.append(
+                    _run_implementation(
+                        workload=workload,
+                        implementation=implementation,
+                        nx=nx,
+                        ny=nx,
+                        warmups=warmups,
+                        repeats=repeats,
+                        cxx=cxx,
+                        threads=implementation_threads,
+                    )
+                )
+
+        results_by_size[nx] = results
 
     return results_by_size
 
@@ -128,6 +140,7 @@ def _run_implementation(
     validate_arguments(nx, ny, warmups, repeats)
     if threads is not None and threads < 1:
         raise ValueError("Expected threads >= 1")
+
     if implementation in ("cpp", "cpp_openmp"):
         result = run_cpp(
             workload=workload,
@@ -156,6 +169,7 @@ def _run_implementation(
         result.output.reshape(expected.shape),
         expected,
     )
+
     return BenchmarkResult(
         implementation=implementation,
         nx=nx,
@@ -184,6 +198,7 @@ def run_cpp(
     source = workload_directory(workload) / f"{workload}_{backend}.cpp"
     executable = compile_cpp_executable(source, cxx=cxx, openmp=backend == "openmp")
     env = os.environ.copy()
+
     if backend == "openmp":
         env["OMP_DYNAMIC"] = "FALSE"
         if threads is not None:
@@ -200,6 +215,7 @@ def run_cpp(
             actual = np.fromfile(output_path, dtype=np.float64)
     finally:
         executable.directory.cleanup()
+
     return WorkloadResult(
         output=actual,
         runtime_ms=float(output["RUNTIME_MS"]),
@@ -218,6 +234,7 @@ def run_python(
     threads: int | None,
 ) -> WorkloadResult:
     result: WorkloadResult
+
     if implementation in ("gt4py_cpu", "gt4py_numpy"):
         workload_directory(workload)
         env = os.environ.copy()
@@ -226,6 +243,7 @@ def run_python(
             str(threads or 1) if implementation == "gt4py_cpu" else "1"
         )
         env["OMP_DYNAMIC"] = "FALSE"
+
         with tempfile.TemporaryDirectory() as output_dir:
             output_path = Path(output_dir) / f"{workload}.bin"
             command = [
@@ -244,21 +262,32 @@ def run_python(
                 "--output",
                 str(output_path),
             ]
+
             try:
                 values = run_key_value_executable(
-                    Path(sys.executable), command, env=env
+                    Path(sys.executable),
+                    command,
+                    env=env,
                 )
             except subprocess.CalledProcessError as error:
                 raise RuntimeError(
                     f"GT4Py run failed. Check the compiler/environment.\n{error.stderr}"
                 ) from error
+
             result = WorkloadResult(
                 output=np.fromfile(output_path, dtype=np.float64),
                 runtime_ms=float(values["RUNTIME_MS"]),
             )
+
     elif implementation == "numpy":
         module = load_workload(workload, "numpy")
-        result = module.main(nx=nx, ny=ny, warmups=warmups, repeats=repeats)
+        result = module.main(
+            nx=nx,
+            ny=ny,
+            warmups=warmups,
+            repeats=repeats,
+        )
+
     else:
         module = load_workload(workload, "yasmin")
 
@@ -286,6 +315,7 @@ def run_python(
         finally:
             if original_affinity is not None and set_affinity is not None:
                 set_affinity(0, original_affinity)
+
     return result
 
 
@@ -306,6 +336,7 @@ def _selected_implementations(
         for implementation in ("gt4py_cpu", "gt4py_numpy"):
             if implementation not in selected:
                 selected.append(implementation)
+
     return selected
 
 
@@ -332,9 +363,17 @@ def main() -> None:
     parser.add_argument("--warmups", type=int, default=2)
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--threads", type=int)
+    parser.add_argument(
+        "--gt4py-cpu-thread-counts",
+        type=int,
+        nargs="+",
+        help="Thread counts for GT4Py CPU during runtime size sweeps.",
+    )
+
     scaling = parser.add_mutually_exclusive_group()
     scaling.add_argument("--strong-scaling", action="store_true")
     scaling.add_argument("--weak-scaling", action="store_true")
+
     parser.add_argument("--thread-counts", type=int, nargs="+")
     parser.add_argument(
         "--implementation",
@@ -380,18 +419,28 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
     if args.strong_scaling or args.weak_scaling:
         mode: Literal["strong", "weak"] = "weak" if args.weak_scaling else "strong"
+
         if args.sizes and len(args.sizes) != 1:
             parser.error("Scaling requires exactly one --size")
-        if args.threads is not None or args.implementations or args.include_openmp:
+
+        if (
+            args.threads is not None
+            or args.gt4py_cpu_thread_counts is not None
+            or args.implementations
+            or args.include_openmp
+        ):
             parser.error(
-                "Scaling selects both OpenMP backends; use --thread-counts "
-                "and optionally --include-gt4py"
+                "Scaling selects its own implementations and thread counts; "
+                "use --thread-counts and optionally --include-gt4py"
             )
+
         thread_counts = args.thread_counts or [1, 2, 4]
         if 1 not in thread_counts or any(t < 1 for t in thread_counts):
             parser.error("Thread counts must be positive and include 1")
+
         results = run_scaling(
             workload=args.workload,
             nx=(args.sizes or [512 if args.weak_scaling else 2048])[0],
@@ -402,12 +451,28 @@ def main() -> None:
             mode=mode,
             include_gt4py=args.include_gt4py,
         )
+
         print_csv(results)
+
         if not args.no_output:
-            write_csv(args.output_dir / f"{args.workload}_{mode}_scaling.csv", results)
+            write_csv(
+                args.output_dir / f"{args.workload}_{mode}_scaling.csv",
+                results,
+            )
+
         return
+
     if args.thread_counts is not None:
         parser.error("--thread-counts requires --strong-scaling or --weak-scaling")
+
+    if args.threads is not None and args.threads < 1:
+        parser.error("--threads must be positive")
+
+    if args.gt4py_cpu_thread_counts is not None and any(
+        threads < 1 for threads in args.gt4py_cpu_thread_counts
+    ):
+        parser.error("GT4Py CPU thread counts must be positive")
+
     implementations = _selected_implementations(
         args.implementations,
         include_openmp=args.include_openmp,
@@ -422,6 +487,7 @@ def main() -> None:
         repeats=args.repeats,
         cxx=args.cxx,
         threads=args.threads,
+        gt4py_cpu_thread_counts=args.gt4py_cpu_thread_counts,
     )
 
     all_results = [result for results in results_by_size.values() for result in results]
