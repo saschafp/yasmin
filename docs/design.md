@@ -17,17 +17,19 @@ Loop IR
     |
     +-----------> OpenMP
     |
+    +-----------> CuPy        # later
+    |
     +-----------> CUDA        # later
 ```
 
 ## Core abstractions
 
-The initial user-facing abstractions are:
+The user-facing stencil abstractions are:
 
 - `Dimension`
-- `Grid`
 - `Field`
 - `Scalar`
+- `SymbolicExpr`
 - `Stencil`
 - `Operator`
 
@@ -35,32 +37,31 @@ A stencil describes a reusable local computation.
 
 An operator describes one or more updates over a domain.
 
-Example target syntax:
+Example syntax:
 
 ```python
 import yasmin as yasi
 
-grid = yasi.Grid(x=1024, y=1024)
-x, y = grid.dims
-
-u = yasi.Field("u", grid)
-out = yasi.Field("out", grid)
+x, y = yasi.Dimension("x", "y")
+u = yasi.Field("u", dims=(x, y), dtype=yasi.float64)
+out = yasi.Field("out", dims=(x, y), dtype=yasi.float64)
+alpha = yasi.Scalar("alpha", dtype=yasi.float64)
 
 
 @yasi.stencil
-def laplace(u):
+def laplace(u: yasi.Field) -> yasi.SymbolicExpr:
     return (
-        u[x - 1]
-        + u[x + 1]
-        + u[y - 1]
-        + u[y + 1]
-        - 4 * u
+        u[-1, 0]
+        + u[1, 0]
+        + u[0, -1]
+        + u[0, 1]
+        - 4.0 * u[0, 0]
     )
 
 
 @yasi.operator
-def heat(u, out, alpha):
-    out = u + alpha * laplace(u)
+def heat(out: yasi.Field, u: yasi.Field, alpha: yasi.Scalar) -> None:
+    out[0, 0] = u[0, 0] + alpha * laplace(u)
 ```
 
 ## Stencil IR
@@ -72,7 +73,7 @@ Field accesses are represented relative to the current logical iteration point.
 For example:
 
 ```python
-u[x - 1]
+u[-1, 0]
 ```
 
 is normalized to something conceptually equivalent to:
@@ -84,7 +85,7 @@ FieldAccess(
 )
 ```
 
-The initial IR will contain only a small set of nodes:
+The IR contains only a small set of nodes:
 
 ```text
 Expr
@@ -127,16 +128,15 @@ This can be used to infer:
 
 ## Loop IR
 
-Compiled backends will lower Stencil IR into a lower-level Loop IR.
+The native backends lower Stencil IR into a lower-level Loop IR.
 
-The Loop IR will represent concepts such as:
+The Loop IR represents concepts such as:
 
 - loops;
 - indices;
 - loads;
 - stores;
 - explicit memory accesses;
-- parallel loops.
 
 Conceptually:
 
@@ -154,17 +154,17 @@ for i = 1 .. nx - 1:
     out[i] = u[i - 1] + u[i + 1]
 ```
 
-NumPy does not necessarily need to pass through Loop IR. It can lower directly from Stencil IR to array slices.
+NumPy executes directly from Stencil IR using array slices and does not pass through Loop IR. OpenMP parallelization is added during native code generation.
 
 ## Backends
 
-The planned backend progression is:
+The backend progression is:
 
 1. NumPy
 2. C++
 3. OpenMP
-4. CuPy
-5. CUDA
+4. CuPy *(planned)*
+5. CUDA *(planned)*
 
 The same Stencil IR should drive all backends.
 
