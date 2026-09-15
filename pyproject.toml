@@ -12,7 +12,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-gt4py = ["gt4py"]
+bench = [
+    "gt4py",
+    "matplotlib",
+]
 dev = [
     "pytest>=8",
     "pytest-cov>=5",
