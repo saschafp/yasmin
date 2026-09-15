@@ -4,6 +4,8 @@ from typing import Any
 
 import numpy.typing as npt
 
+from yasmin.compiler.config import CppOptions
+from yasmin.compiler.openmp import OpenMPConfig
 from yasmin.frontend import Field, Scalar
 from yasmin.runtime.native import CompiledFunction
 
@@ -14,6 +16,7 @@ Array = npt.NDArray[Any]
 class Kernel:
     _compiled: CompiledFunction
     source: str
+    config: CppOptions | OpenMPConfig
 
     def __call__(
         self,

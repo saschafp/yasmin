@@ -7,6 +7,7 @@ import yasmin as yasi
 from yasmin.backends.cpp import CppBackend
 from yasmin.backends.openmp import OpenMPBackend
 from yasmin.compiler.compile import _clear_compilation_cache
+from yasmin.compiler.openmp import OpenMPConfig
 from yasmin.runtime.native import NativeArtifact
 
 
@@ -48,6 +49,7 @@ def test_compile_cpp_returns_executable_kernel(
 
     assert isinstance(kernel, yasi.Kernel)
     assert kernel.source == "// generated source"
+    assert kernel.config == yasi.CppOptions()
     assert compile_mock.call_count == 1
 
     u_data = np.ones(16, dtype=np.float64)
@@ -109,6 +111,14 @@ def test_compile_openmp_does_not_require_shapes(
 
     assert isinstance(kernel, yasi.Kernel)
     assert kernel.source == "// generated source"
+    assert isinstance(kernel.config, OpenMPConfig)
+
+    loop_config = kernel.config.loop_configs[0]
+
+    assert loop_config is not None
+    assert loop_config.parallelize
+    assert loop_config.num_threads is None
+
     assert compile_mock.call_count == 1
 
 

@@ -50,13 +50,13 @@ def execute(
 
     shapes = {field: array.shape for field, array in field_bindings.items()}
 
-    artifact = _compile_function(
+    result = _compile_function(
         function,
         config=config,
         shapes=shapes,
     )
 
-    artifact.function(
+    result.artifact.function(
         fields=field_bindings,
         scalars=scalar_bindings,
     )
