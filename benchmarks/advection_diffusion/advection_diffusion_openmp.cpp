@@ -1,0 +1,95 @@
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <cstdlib>
+#include <iomanip>
+#include <iostream>
+
+#include "../cpp_utils.hpp"
+
+using Clock = std::chrono::steady_clock;
+
+void make_initial(double* initial, int nx) {
+    for (int i = 0; i < nx; ++i) {
+        for (int j = 0; j < nx; ++j) {
+            const double delta = 1.0 / (4.0 * (1.0 + std::exp(-4.0 * i / (nx - 1) + 4.0 * j / (nx - 1)) / 3.2));
+            initial[i * nx + j] = 0.75 - delta;
+            initial[nx * nx + i * nx + j] = 0.75 + delta;
+        }
+    }
+}
+
+void advection_diffusion(const double* initial, double* out, int nx) {
+    const double dx = 1.0 / (nx - 1);
+    const double dt = dx * dx;
+#pragma omp parallel for collapse(2) schedule(static)
+    for (int i = 3; i < nx - 3; ++i) {
+        for (int j = 3; j < nx - 3; ++j) {
+            const int k = i * nx + j;
+            const double u = initial[k], v = initial[nx * nx + k];
+            for (int component = 0; component < 2; ++component) {
+                const double* f = initial + component * nx * nx;
+                const double c = f[k];
+                const double adv_x = u / (60.0 * dx) * (
+                    45.0 * (f[k + nx] - f[k - nx]) - 9.0 * (f[k + 2 * nx] - f[k - 2 * nx]) + (f[k + 3 * nx] - f[k - 3 * nx])
+                ) - std::fabs(u) / (60.0 * dx) * (
+                    f[k + 3 * nx] + f[k - 3 * nx] - 6.0 * (f[k + 2 * nx] + f[k - 2 * nx]) + 15.0 * (f[k + nx] + f[k - nx]) - 20.0 * c
+                );
+                const double adv_y = v / (60.0 * dx) * (
+                    45.0 * (f[k + 1] - f[k - 1]) - 9.0 * (f[k + 2] - f[k - 2]) + (f[k + 3] - f[k - 3])
+                ) - std::fabs(v) / (60.0 * dx) * (
+                    f[k + 3] + f[k - 3] - 6.0 * (f[k + 2] + f[k - 2]) + 15.0 * (f[k + 1] + f[k - 1]) - 20.0 * c
+                );
+                const double diff_x = (-f[k - 2 * nx] + 16.0 * f[k - nx] - 30.0 * c + 16.0 * f[k + nx] - f[k + 2 * nx]) / (12.0 * dx * dx);
+                const double diff_y = (-f[k - 2] + 16.0 * f[k - 1] - 30.0 * c + 16.0 * f[k + 1] - f[k + 2]) / (12.0 * dx * dx);
+                out[component * nx * nx + k] = c + dt * (-(adv_x + adv_y) + 0.1 * (diff_x + diff_y));
+            }
+        }
+    }
+}
+
+int main(int argc, char* argv[]) {
+    if (argc != 5) {
+        std::cerr << "Usage: advection_diffusion <nx> <warmups> <repeats> <output_path>\n";
+        return 1;
+    }
+    const int nx = std::atoi(argv[1]);
+    const int warmups = std::atoi(argv[2]);
+    const int repeats = std::atoi(argv[3]);
+    if (nx < 7 || warmups < 0 || repeats < 1) {
+        std::cerr << "Expected nx >= 7, warmups >= 0, repeats >= 1\n";
+        return 1;
+    }
+    double* initial = (double*)std::malloc(2 * (std::size_t)nx * nx * sizeof(double));
+    double* out = (double*)std::malloc(2 * (std::size_t)nx * nx * sizeof(double));
+    double* timings = (double*)std::malloc((std::size_t)repeats * sizeof(double));
+    if (!initial || !out || !timings) {
+        std::cerr << "Failed to allocate buffers\n";
+        std::free(initial);
+        std::free(out);
+        std::free(timings);
+        return 1;
+    }
+    make_initial(initial, nx);
+    std::copy(initial, initial + 2 * (std::size_t)nx * nx, out);
+    for (int run = 0; run < warmups; ++run) {
+        advection_diffusion(initial, out, nx);
+    }
+    for (int run = 0; run < repeats; ++run) {
+        const auto start = Clock::now();
+        advection_diffusion(initial, out, nx);
+        timings[run] = std::chrono::duration<double, std::milli>(Clock::now() - start).count();
+    }
+    const bool written = benchmark::write_array(argv[4], out, 2 * (std::size_t)nx * nx);
+    if (written) {
+        std::cout << std::fixed << std::setprecision(12)
+                  << "NX=" << nx << "\n"
+                  << "RUNTIME_MS=" << benchmark::median(timings, repeats) << "\n";
+    } else {
+        std::cerr << "Failed to write output array\n";
+    }
+    std::free(initial);
+    std::free(out);
+    std::free(timings);
+    return written ? 0 : 1;
+}
