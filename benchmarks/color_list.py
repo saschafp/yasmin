@@ -1,4 +1,6 @@
 COLOR_BY_IMPLEMENTATION = {
+    "gt4py_cpu": "#a23b72",
+    "gt4py_numpy": "#d58ab4",
     "yasmin_numpy": "#1f77b4",
     "numpy": "#5aa9e6",
     "yasmin_cpp": "#cf6b14",
@@ -8,6 +10,8 @@ COLOR_BY_IMPLEMENTATION = {
 }
 
 MARKER_BY_IMPLEMENTATION = {
+    "gt4py_cpu": "s",
+    "gt4py_numpy": "s",
     "yasmin_numpy": "o",
     "yasmin_cpp": "o",
     "yasmin_openmp": "o",

@@ -41,6 +41,9 @@ htmlcov/
 # Generated benchmark outputs
 benchmarks/outputs/
 
+# GT4Py cache
+.gt_cache/
+
 # Temporary files
 *.tmp
 *.log

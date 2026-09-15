@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import math
 import os
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Literal
@@ -30,6 +32,8 @@ Implementation = Literal[
     "numpy",
     "cpp",
     "cpp_openmp",
+    "gt4py_cpu",
+    "gt4py_numpy",
 ]
 
 DEFAULT_SIZES = [128, 256, 512, 1024, 2048]
@@ -144,7 +148,9 @@ def _run_implementation(
     return BenchmarkResult(
         implementation=implementation,
         nx=nx,
-        threads=threads if implementation in OPENMP_IMPLEMENTATIONS else None,
+        threads=(threads or 1)
+        if implementation == "gt4py_cpu"
+        else (threads if implementation in OPENMP_IMPLEMENTATIONS else None),
         runtime_ms=result.runtime_ms,
         correct=correct,
     )
@@ -196,7 +202,43 @@ def run_python(
     threads: int | None,
 ) -> WorkloadResult:
     result: WorkloadResult
-    if implementation == "numpy":
+    if implementation in ("gt4py_cpu", "gt4py_numpy"):
+        workload_directory(workload)
+        env = os.environ.copy()
+        env["CXX"] = cxx
+        env["OMP_NUM_THREADS"] = (
+            str(threads or 1) if implementation == "gt4py_cpu" else "1"
+        )
+        env["OMP_DYNAMIC"] = "FALSE"
+        with tempfile.TemporaryDirectory() as output_dir:
+            output_path = Path(output_dir) / f"{workload}.bin"
+            command = [
+                "-m",
+                f"benchmarks.{workload}.{workload}_gt4py",
+                "--backend",
+                "gt:cpu_ifirst" if implementation == "gt4py_cpu" else "numpy",
+                "--nx",
+                str(nx),
+                "--warmups",
+                str(warmups),
+                "--repeats",
+                str(repeats),
+                "--output",
+                str(output_path),
+            ]
+            try:
+                values = run_key_value_executable(
+                    Path(sys.executable), command, env=env
+                )
+            except subprocess.CalledProcessError as error:
+                raise RuntimeError(
+                    f"GT4Py run failed. Check the compiler/environment.\n{error.stderr}"
+                ) from error
+            result = WorkloadResult(
+                output=np.fromfile(output_path, dtype=np.float64),
+                runtime_ms=float(values["RUNTIME_MS"]),
+            )
+    elif implementation == "numpy":
         module = load_workload(workload, "numpy")
         result = module.main(nx=nx, warmups=warmups, repeats=repeats)
     else:
@@ -216,6 +258,7 @@ def _selected_implementations(
     implementations: list[Implementation] | None,
     *,
     include_openmp: bool,
+    include_gt4py: bool = False,
 ) -> list[Implementation]:
     selected = list(implementations or DEFAULT_IMPLEMENTATIONS)
 
@@ -224,6 +267,10 @@ def _selected_implementations(
             if implementation not in selected:
                 selected.append(implementation)
 
+    if include_gt4py:
+        for implementation in ("gt4py_cpu", "gt4py_numpy"):
+            if implementation not in selected:
+                selected.append(implementation)
     return selected
 
 
@@ -263,6 +310,8 @@ def main() -> None:
             "numpy",
             "cpp",
             "cpp_openmp",
+            "gt4py_cpu",
+            "gt4py_numpy",
         ),
         action="append",
         dest="implementations",
@@ -272,6 +321,11 @@ def main() -> None:
         "--include-openmp",
         action="store_true",
         help="Include Yasmin OpenMP and standalone OpenMP implementations.",
+    )
+    parser.add_argument(
+        "--include-gt4py",
+        action="store_true",
+        help="Include GT4Py's compiled CPU and NumPy backends (requires GT4Py).",
     )
     parser.add_argument(
         "--cxx",
@@ -295,7 +349,12 @@ def main() -> None:
         mode: Literal["strong", "weak"] = "weak" if args.weak_scaling else "strong"
         if args.sizes and len(args.sizes) != 1:
             parser.error("Scaling requires exactly one --size")
-        if args.threads is not None or args.implementations or args.include_openmp:
+        if (
+            args.threads is not None
+            or args.implementations
+            or args.include_openmp
+            or args.include_gt4py
+        ):
             parser.error("Scaling selects both OpenMP backends; use --thread-counts")
         thread_counts = args.thread_counts or [1, 2, 4]
         if 1 not in thread_counts or any(t < 1 for t in thread_counts):
@@ -318,6 +377,7 @@ def main() -> None:
     implementations = _selected_implementations(
         args.implementations,
         include_openmp=args.include_openmp,
+        include_gt4py=args.include_gt4py,
     )
 
     results_by_size = run(
