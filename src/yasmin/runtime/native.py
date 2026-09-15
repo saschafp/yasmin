@@ -162,6 +162,11 @@ class CompiledFunction:
     ) -> None:
         scalar_bindings = scalars or {}
 
+        self._validate_bindings(
+            fields=fields,
+            scalars=scalar_bindings,
+        )
+
         args: list[Any] = []
 
         for field in self.function.fields:
@@ -197,3 +202,35 @@ class CompiledFunction:
             args.append(ctype(scalar_bindings[scalar]))
 
         self._function(*args)
+
+    def _validate_bindings(
+        self,
+        *,
+        fields: Mapping[Field, Array],
+        scalars: Mapping[Scalar, ScalarValue],
+    ) -> None:
+        expected_fields = set(self.function.fields)
+        provided_fields = set(fields)
+
+        missing_fields = expected_fields - provided_fields
+        if missing_fields:
+            names = ", ".join(sorted(field.name for field in missing_fields))
+            raise ValueError(f"Missing field bindings: {names}")
+
+        unexpected_fields = provided_fields - expected_fields
+        if unexpected_fields:
+            names = ", ".join(sorted(field.name for field in unexpected_fields))
+            raise ValueError(f"Unexpected field bindings: {names}")
+
+        expected_scalars = set(self.function.scalars)
+        provided_scalars = set(scalars)
+
+        missing_scalars = expected_scalars - provided_scalars
+        if missing_scalars:
+            names = ", ".join(sorted(scalar.name for scalar in missing_scalars))
+            raise ValueError(f"Missing scalar bindings: {names}")
+
+        unexpected_scalars = provided_scalars - expected_scalars
+        if unexpected_scalars:
+            names = ", ".join(sorted(scalar.name for scalar in unexpected_scalars))
+            raise ValueError(f"Unexpected scalar bindings: {names}")
