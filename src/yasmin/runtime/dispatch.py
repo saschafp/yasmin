@@ -1,12 +1,11 @@
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Literal
 
 import numpy.typing as npt
 
 from yasmin.backends import CppBackend, NumPyBackend, OpenMPBackend
-from yasmin.compiler.config import OpenMPOptions
-from yasmin.compiler.openmp import resolve_openmp_config
-from yasmin.core import Field as CoreField
+from yasmin.compiler.config import CppOptions, FieldShapes, OpenMPOptions
+from yasmin.compiler.openmp import OpenMPConfig, resolve_openmp_config
 from yasmin.frontend import Field, Operator, Scalar
 from yasmin.ir import loop
 from yasmin.lowering import lower
@@ -14,33 +13,47 @@ from yasmin.runtime.native import CompiledFunction
 
 Array = npt.NDArray[Any]
 
-ShapeKey = tuple[tuple[CoreField, tuple[int, ...]], ...]
+CppCacheKey = tuple[
+    Literal["cpp"],
+    loop.Function,
+    CppOptions,
+]
+
+OpenMPCacheKey = tuple[
+    Literal["openmp"],
+    loop.Function,
+    OpenMPConfig,
+]
+
+CompilationCacheKey = CppCacheKey | OpenMPCacheKey
 
 _compilation_cache: dict[
-    tuple[str, loop.Function, ShapeKey],
+    CompilationCacheKey,
     CompiledFunction,
 ] = {}
-
-
-def _shape_key(
-    shapes: Mapping[CoreField, tuple[int, ...]],
-) -> ShapeKey:
-    return tuple((field, tuple(shape)) for field, shape in shapes.items())
 
 
 def _get_compiled_function(
     backend: str,
     function: loop.Function,
-    shapes: Mapping[CoreField, tuple[int, ...]],
+    shapes: FieldShapes,
 ) -> CompiledFunction:
-    key = (backend, function, _shape_key(shapes))
-
-    cached = _compilation_cache.get(key)
-    if cached is not None:
-        return cached
-
     if backend == "cpp":
-        compiled_function = CppBackend().compile(function)
+        options = CppOptions()
+
+        key: CompilationCacheKey = (
+            "cpp",
+            function,
+            options,
+        )
+
+        cached = _compilation_cache.get(key)
+        if cached is not None:
+            return cached
+
+        compiled_function = CppBackend(
+            options=options,
+        ).compile(function)
 
     elif backend == "openmp":
         options = OpenMPOptions()
@@ -50,6 +63,16 @@ def _get_compiled_function(
             options=options,
             shapes=shapes,
         )
+
+        key = (
+            "openmp",
+            function,
+            config,
+        )
+
+        cached = _compilation_cache.get(key)
+        if cached is not None:
+            return cached
 
         compiled_function = OpenMPBackend(
             config=config,
