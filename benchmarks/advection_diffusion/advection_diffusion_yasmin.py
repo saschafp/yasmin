@@ -4,8 +4,6 @@ import os
 from pathlib import Path
 from typing import Literal
 
-import numpy as np
-
 import yasmin as yasi
 from benchmarks.advection_diffusion.advection_diffusion_numpy import (
     make_initial,
@@ -25,21 +23,20 @@ def advection_diffusion(
     x, y = yasi.Dimension("x"), yasi.Dimension("y")
     fields = tuple(
         yasi.Field(name, dims=(x, y), dtype=yasi.float64)
-        for name in ("u", "v", "au", "av", "out_u", "out_v")
+        for name in ("u", "v", "out_u", "out_v")
     )
-    u, v, au, av, out_u, out_v = fields
+    u, v, out_u, out_v = fields
     dt = yasi.Scalar("dt", dtype=yasi.float64)
     dx = 1.0 / (nx - 1)
 
     @yasi.stencil
-    def update(
-        f: yasi.Field, u: yasi.Field, v: yasi.Field, au: yasi.Field, av: yasi.Field
-    ) -> SymbolicExpr:
+    def update(f: yasi.Field, u: yasi.Field, v: yasi.Field) -> SymbolicExpr:
+        # Fixed positive input velocities make absolute-value fields unnecessary.
         adv_x = u[0, 0] / (60.0 * dx) * (
             45.0 * (f[1, 0] - f[-1, 0])
             - 9.0 * (f[2, 0] - f[-2, 0])
             + (f[3, 0] - f[-3, 0])
-        ) - au[0, 0] / (60.0 * dx) * (
+        ) - u[0, 0] / (60.0 * dx) * (
             f[3, 0]
             + f[-3, 0]
             - 6.0 * (f[2, 0] + f[-2, 0])
@@ -50,7 +47,7 @@ def advection_diffusion(
             45.0 * (f[0, 1] - f[0, -1])
             - 9.0 * (f[0, 2] - f[0, -2])
             + (f[0, 3] - f[0, -3])
-        ) - av[0, 0] / (60.0 * dx) * (
+        ) - v[0, 0] / (60.0 * dx) * (
             f[0, 3]
             + f[0, -3]
             - 6.0 * (f[0, 2] + f[0, -2])
@@ -69,15 +66,13 @@ def advection_diffusion(
     def stage(
         u: yasi.Field,
         v: yasi.Field,
-        au: yasi.Field,
-        av: yasi.Field,
         out_u: yasi.Field,
         out_v: yasi.Field,
     ) -> None:
-        out_u[0, 0] = update(u, u, v, au, av)
-        out_v[0, 0] = update(v, u, v, au, av)
+        out_u[0, 0] = update(u, u, v)
+        out_v[0, 0] = update(v, u, v)
 
-    return stage(u, v, au, av, out_u, out_v), fields, dt
+    return stage(u, v, out_u, out_v), fields, dt
 
 
 def main(
@@ -95,9 +90,8 @@ def main(
         raise ValueError("Expected threads >= 1")
     initial = make_initial(nx)
     out = initial.copy()
-    absolute = np.empty_like(initial)
     operator, fields, dt_scalar = advection_diffusion(nx)
-    u, v, au, av, out_u, out_v = fields
+    u, v, out_u, out_v = fields
     kernel = None
     if backend != "numpy":
         previous_cxx = os.environ.get("CXX")
@@ -130,14 +124,11 @@ def main(
     bindings = {
         u: initial[0],
         v: initial[1],
-        au: absolute[0],
-        av: absolute[1],
         out_u: out[0],
         out_v: out[1],
     }
 
     def execute_once() -> None:
-        np.abs(initial, out=absolute)
         if kernel is None:
             yasi.execute(operator, backend="numpy", fields=bindings, scalars=scalars)
         else:

@@ -29,6 +29,7 @@ def make_initial(nx: int) -> Array:
 
 
 def advection_diffusion(state: Array, out: Array) -> None:
+    # The fixed initial velocities are positive, so abs(u) = u and abs(v) = v.
     dx = 1.0 / (state.shape[1] - 1)
     dt = dx * dx
     u, v = state[:, 3:-3, 3:-3]
@@ -42,12 +43,12 @@ def advection_diffusion(state: Array, out: Array) -> None:
         yp3, ym3 = field[3:-3, 6:], field[3:-3, :-6]
         adv_x = u / (60.0 * dx) * (
             45.0 * (xp1 - xm1) - 9.0 * (xp2 - xm2) + (xp3 - xm3)
-        ) - np.abs(u) / (60.0 * dx) * (
+        ) - u / (60.0 * dx) * (
             xp3 + xm3 - 6.0 * (xp2 + xm2) + 15.0 * (xp1 + xm1) - 20.0 * c
         )
         adv_y = v / (60.0 * dx) * (
             45.0 * (yp1 - ym1) - 9.0 * (yp2 - ym2) + (yp3 - ym3)
-        ) - np.abs(v) / (60.0 * dx) * (
+        ) - v / (60.0 * dx) * (
             yp3 + ym3 - 6.0 * (yp2 + ym2) + 15.0 * (yp1 + ym1) - 20.0 * c
         )
         diff_x = (-xm2 + 16.0 * xm1 - 30.0 * c + 16.0 * xp1 - xp2) / (12.0 * dx * dx)

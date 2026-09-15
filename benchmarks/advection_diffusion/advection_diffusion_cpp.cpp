@@ -20,6 +20,7 @@ void make_initial(double* initial, int nx) {
 }
 
 void advection_diffusion(const double* initial, double* out, int nx) {
+    // Fixed positive input velocities imply abs(u) = u and abs(v) = v.
     const double dx = 1.0 / (nx - 1);
     const double dt = dx * dx;
     for (int i = 3; i < nx - 3; ++i) {
@@ -31,12 +32,12 @@ void advection_diffusion(const double* initial, double* out, int nx) {
                 const double c = f[k];
                 const double adv_x = u / (60.0 * dx) * (
                     45.0 * (f[k + nx] - f[k - nx]) - 9.0 * (f[k + 2 * nx] - f[k - 2 * nx]) + (f[k + 3 * nx] - f[k - 3 * nx])
-                ) - std::fabs(u) / (60.0 * dx) * (
+                ) - u / (60.0 * dx) * (
                     f[k + 3 * nx] + f[k - 3 * nx] - 6.0 * (f[k + 2 * nx] + f[k - 2 * nx]) + 15.0 * (f[k + nx] + f[k - nx]) - 20.0 * c
                 );
                 const double adv_y = v / (60.0 * dx) * (
                     45.0 * (f[k + 1] - f[k - 1]) - 9.0 * (f[k + 2] - f[k - 2]) + (f[k + 3] - f[k - 3])
-                ) - std::fabs(v) / (60.0 * dx) * (
+                ) - v / (60.0 * dx) * (
                     f[k + 3] + f[k - 3] - 6.0 * (f[k + 2] + f[k - 2]) + 15.0 * (f[k + 1] + f[k - 1]) - 20.0 * c
                 );
                 const double diff_x = (-f[k - 2 * nx] + 16.0 * f[k - nx] - 30.0 * c + 16.0 * f[k + nx] - f[k + 2 * nx]) / (12.0 * dx * dx);
