@@ -71,6 +71,7 @@ Available execution backends are `numpy`, `cpp`, and `openmp`.
 
 ## More
 
+- [`HPC4WC_Yasmin.pdf`](HPC4WC_Yasmin.pdf) — final project report
 - [`examples/laplacian.py`](examples/laplacian.py) — small runnable example
 - [`notebooks/tutorial.ipynb`](notebooks/tutorial.ipynb) — guided introduction
 - [`docs/design.md`](docs/design.md) — design notes and compiler architecture
