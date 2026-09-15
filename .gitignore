@@ -38,6 +38,9 @@ htmlcov/
 *.dll
 *.dylib
 
+# Generated benchmark outputs
+benchmarks/outputs/
+
 # Temporary files
 *.tmp
 *.log
