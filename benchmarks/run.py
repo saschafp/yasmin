@@ -88,9 +88,13 @@ def run_scaling(
     repeats: int,
     cxx: str,
     mode: Literal["strong", "weak"] = "strong",
+    include_gt4py: bool = False,
 ) -> list[BenchmarkResult]:
     if not thread_counts or 1 not in thread_counts or any(t < 1 for t in thread_counts):
         raise ValueError("Thread counts must be positive and include 1")
+    implementations = list(OPENMP_IMPLEMENTATIONS)
+    if include_gt4py:
+        implementations.append("gt4py_cpu")
     return [
         _run_implementation(
             workload=workload,
@@ -102,7 +106,7 @@ def run_scaling(
             threads=threads,
         )
         for threads in sorted(set(thread_counts))
-        for implementation in OPENMP_IMPLEMENTATIONS
+        for implementation in implementations
     ]
 
 
@@ -325,7 +329,7 @@ def main() -> None:
     parser.add_argument(
         "--include-gt4py",
         action="store_true",
-        help="Include GT4Py's compiled CPU and NumPy backends (requires GT4Py).",
+        help="Include GT4Py CPU and NumPy backends; scaling includes CPU only.",
     )
     parser.add_argument(
         "--cxx",
@@ -349,13 +353,11 @@ def main() -> None:
         mode: Literal["strong", "weak"] = "weak" if args.weak_scaling else "strong"
         if args.sizes and len(args.sizes) != 1:
             parser.error("Scaling requires exactly one --size")
-        if (
-            args.threads is not None
-            or args.implementations
-            or args.include_openmp
-            or args.include_gt4py
-        ):
-            parser.error("Scaling selects both OpenMP backends; use --thread-counts")
+        if args.threads is not None or args.implementations or args.include_openmp:
+            parser.error(
+                "Scaling selects both OpenMP backends; use --thread-counts "
+                "and optionally --include-gt4py"
+            )
         thread_counts = args.thread_counts or [1, 2, 4]
         if 1 not in thread_counts or any(t < 1 for t in thread_counts):
             parser.error("Thread counts must be positive and include 1")
@@ -367,6 +369,7 @@ def main() -> None:
             repeats=args.repeats,
             cxx=args.cxx,
             mode=mode,
+            include_gt4py=args.include_gt4py,
         )
         print_csv(results)
         if not args.no_output:

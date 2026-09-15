@@ -24,7 +24,7 @@ def load_scaling_data(
             implementation = row["implementation"].strip()
             nx, threads = int(row["nx"]), int(row["threads"])
             runtime = float(row["runtime_ms"])
-            if implementation not in ("yasmin_openmp", "cpp_openmp"):
+            if implementation not in ("yasmin_openmp", "cpp_openmp", "gt4py_cpu"):
                 raise ValueError(f"Unexpected scaling implementation: {implementation}")
             if row["correct"] != "true":
                 raise ValueError(
@@ -111,7 +111,7 @@ def plot_scaling(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Plot OpenMP scaling.")
+    parser = argparse.ArgumentParser(description="Plot CPU scaling.")
     parser.add_argument("--mode", choices=("strong", "weak"), default="strong")
     parser.add_argument("problem", nargs="?", default="laplacian")
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
